@@ -1,13 +1,13 @@
 <div align="center">
   <h1>🏋️‍♀️ Sistema Web Administrativo - LaraFit Studio</h1>
-  <p><i>Proyecto Integrador 1 | FIME - UANL</i> </p>
+  <p><i>Proyecto Integrador 1 | FIME - UANL</i></p>
 </div>
 
 ---
 
 ## 📖 Acerca del Proyecto
 
-LaraFit Studio es un gimnasio exclusivo para mujeres ubicado en Cd. Victoria, Tamaulipas. Actualmente administra su operación diaria de forma manual[cite: 4]. Este proyecto propone una **aplicación web administrativa** optimizada para usarse desde un iPad. 
+LaraFit Studio es un gimnasio exclusivo para mujeres. Actualmente administra su operación diaria de forma manual. Este proyecto propone una **aplicación web administrativa** optimizada para usarse desde un iPad. 
 
 El objetivo es gestionar de manera centralizada y segura el registro de alumnas, asistencias, pagos, cupos por horario y reportes, mejorando la eficiencia y fortaleciendo la experiencia en un espacio diseñado para brindar confianza a las mujeres.
 
@@ -15,26 +15,35 @@ El objetivo es gestionar de manera centralizada y segura el registro de alumnas,
 
 ## ✨ Características y Módulos
 
-El sistema está diseñado para resolver las necesidades operativas diarias mediante los siguientes módulos:
+El sistema está diseñado para resolver las necesidades operativas diarias mediante los siguientes módulos, los cuales ya están reflejados en el código de la aplicación:
 
-**👩‍🦰 Gestión de Alumnas:** Registro seguro, actualización y consulta de datos personales y contactos de emergencia.
-**📅 Horarios y Cupos:** Configuración de clases, validación para evitar sobrecupos y visualización de disponibilidad en tiempo real.
-**✅ Control de Asistencias:** Registro rápido y ágil de asistencias diarias e historial por alumna.
-**💳 Gestión de Pagos:** Registro de mensualidades, cálculo automático de vencimientos y filtro de alumnas con adeudo.
-**📊 Reportes:** Métricas clave como alumnas activas, ingresos por periodo y horarios con mayor demanda.
+* **📱 Landing Page:** Página de inicio atractiva que muestra las clases ofrecidas (Trampolín, Mat Pilates, Fuerza, Baile Fit), horarios, testimonios y la ubicación del estudio.
+* **👩‍🦰 Gestión y Perfil de Alumnas:**
+    * Listado completo con buscador y filtros por estado de pago.
+    * Perfiles individuales detallados con información personal, contactos de emergencia, historial de pagos y métricas de asistencia.
+    * Módulo de registro seguro para nuevas alumnas con validación de contraseñas y medición de seguridad .
+* **✅ Control de Asistencias:**
+    * Panel diario para marcar asistencia (Presente, Ausente, Justificado) con filtros por clase y resumen general del día.
+* **💳 Panel de Control (Dashboard):**
+    * Vista principal que resume las estadísticas diarias: total de alumnas activas, estado general de pagos, asistencia del día y un gráfico del comportamiento semanal.
+    * Historial de actividad reciente y vista rápida de los pagos próximos a vencer .
+* **🔒 Autenticación y Seguridad:**
+    * Sistema de inicio de sesión diferenciado para administradoras y alumnas .
+* **⚙️ Configuración del Sistema:**
+    * Panel para gestionar el perfil del estudio, notificaciones, apariencia y preferencias generales.
 
 ---
 
 ## 🛠️ Metodología y Herramientas
 
-El desarrollo se gestiona utilizando la **metodología ágil SCRUM** [cite: 60] [cite_start]a través de **Jira** para la planeación del proyecto. El trabajo está dividido en Sprints de 2 semanas de duración:
+El desarrollo se gestiona utilizando la **metodología ágil SCRUM** a través de **Jira** para la planeación del proyecto. El trabajo está dividido en Sprints de 2 semanas de duración.
 
-**Sprint 0:** Preparación (Arquitectura, BD, Wireframes).
-**Sprint 1:** Base Operativa (Login y Gestión de Alumnas).
-**Sprint 2:** Horarios y Cupos.
-**Sprint 3:** Asistencias.
-**Sprint 4:** Pagos y Vigencias.
-**Sprint 5:** Reportes y Optimización UX para iPad.
+### Tecnologías Utilizadas en el Frontend:
+* **React (Vite):** Biblioteca principal para la construcción de interfaces de usuario.
+* **TypeScript:** Para garantizar la integridad del código y facilitar el desarrollo.
+* **React Router:** Manejo de la navegación y rutas de la aplicación.
+* **Lucide React:** Biblioteca de iconos consistentes y ligeros.
+* **Recharts:** Generación de gráficos interactivos en el Dashboard.
 
 ---
 
@@ -55,3 +64,4 @@ El desarrollo se gestiona utilizando la **metodología ágil SCRUM** [cite: 60] 
 
 ## 🚀 Instalación y Uso (Próximamente)
 
+*(En esta sección, el equipo agregará más adelante las instrucciones sobre cómo clonar el repositorio, instalar dependencias, configurar las variables de entorno de la base de datos y correr el servidor local).*
