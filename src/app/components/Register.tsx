@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from "../context/AuthContext";
+import { signup } from "../../../backend/auth"
 import { Flower2, Eye, EyeOff, ArrowRight, Loader2, Check } from "lucide-react";
 
 export function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -45,7 +44,13 @@ export function Register() {
       return;
     }
     setLoading(true);
-    const result = await register(name, email, password, "admin");
+
+    const result = await signup({
+      nombre: name.trim() || undefined,
+      email: email.trim(),
+      password,
+    });
+
     setLoading(false);
     if (result.success) {
       navigate("/dashboard");

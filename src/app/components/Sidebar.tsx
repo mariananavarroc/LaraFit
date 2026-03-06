@@ -1,5 +1,4 @@
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard,
   Users,
@@ -23,10 +22,8 @@ const navItems = [
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    logout();
     navigate("/");
   };
 
@@ -137,8 +134,8 @@ export function Sidebar() {
             LA
           </div>
           <div>
-            <p style={{ color: "#FFFFFF", fontSize: "0.8rem" }}>{user?.name || "Administradora"}</p>
-            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.7rem" }}>{user?.role || "Admin"}</p>
+            <p style={{ color: "#FFFFFF", fontSize: "0.8rem" }}>{"Administradora"}</p>
+            <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "0.7rem" }}>{"Admin"}</p>
           </div>
         </div>
         <button

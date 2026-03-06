@@ -13,7 +13,6 @@ import { NuevaAlumna } from "./components/NuevaAlumna";
 import { Asistencia } from "./components/Asistencia";
 import { Pagos } from "./components/Pagos";
 import { RegistroMatricula } from "./components/RegistroMatricula";
-import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Estudio } from "./components/Estudio";
 
 export const router = createBrowserRouter([
@@ -35,7 +34,6 @@ export const router = createBrowserRouter([
   // ── Admin dashboard (protegido, solo role: admin) ──
   {
     path: "/dashboard",
-    Component: ProtectedRoute,
     children: [
       {
         Component: Layout,
