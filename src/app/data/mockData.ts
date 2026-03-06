@@ -42,6 +42,7 @@ export interface Student {
   attendance: AttendanceRecord[];
   payments: Payment[];
   notes: string;
+  activa: boolean;
 }
 
 export const students: Student[] = [
@@ -61,6 +62,7 @@ export const students: Student[] = [
     nextPaymentDate: "2026-04-01",
     lastPaymentDate: "2026-03-01",
     monthlyFee: 65000,
+    activa: true,
     emergencyContacts: [
       { name: "Carlos Torres", phone: "+56 9 1234 5678", relationship: "Esposo" },
       { name: "María González", phone: "+56 9 8765 1234", relationship: "Madre" },
@@ -98,6 +100,7 @@ export const students: Student[] = [
     nextPaymentDate: "2026-03-10",
     lastPaymentDate: "2026-02-10",
     monthlyFee: 45000,
+    activa: true,
     emergencyContacts: [
       { name: "Sofía Muñoz", phone: "+56 9 3456 7890", relationship: "Hermana" },
     ],
@@ -130,6 +133,7 @@ export const students: Student[] = [
     nextPaymentDate: "2026-04-05",
     lastPaymentDate: "2026-03-05",
     monthlyFee: 65000,
+    activa: true,
     emergencyContacts: [
       { name: "Pedro Reyes", phone: "+56 9 6543 2109", relationship: "Padre" },
       { name: "Ana Martínez", phone: "+56 9 2109 8765", relationship: "Amiga" },
@@ -164,6 +168,7 @@ export const students: Student[] = [
     nextPaymentDate: "2026-02-20",
     lastPaymentDate: "2026-01-20",
     monthlyFee: 35000,
+    activa: true,
     emergencyContacts: [
       { name: "Lucia Vásquez", phone: "+56 9 0987 6543", relationship: "Madre" },
     ],
@@ -195,6 +200,7 @@ export const students: Student[] = [
     nextPaymentDate: "2026-04-01",
     lastPaymentDate: "2026-03-01",
     monthlyFee: 65000,
+    activa: true,
     emergencyContacts: [
       { name: "Jorge Díaz", phone: "+56 9 8765 0123", relationship: "Hermano" },
     ],
@@ -227,6 +233,7 @@ export const students: Student[] = [
     nextPaymentDate: "2026-03-10",
     lastPaymentDate: "2026-02-10",
     monthlyFee: 45000,
+    activa: true,
     emergencyContacts: [
       { name: "Paula Morales", phone: "+56 9 1098 7654", relationship: "Madre" },
     ],
