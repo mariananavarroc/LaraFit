@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { signup } from "../../../backend/auth"
-import { Flower2, Eye, EyeOff, ArrowRight, Loader2, Check } from "lucide-react";
+import { signup } from "../../../backend/auth";
+import { Flower2, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 
 export function Register() {
   const navigate = useNavigate();
@@ -53,7 +53,7 @@ export function Register() {
 
     setLoading(false);
     if (result.success) {
-      navigate("/dashboard");
+      navigate("/mi-cuenta");
     } else {
       setError(result.error || "Error al registrar.");
     }
@@ -137,37 +137,6 @@ export function Register() {
           >
             Lara Fit Studio
           </h1>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", letterSpacing: "0.22em", textTransform: "uppercase", marginBottom: 48 }}>
-            Panel Administrativo
-          </p>
-
-          {/* Benefits list */}
-          <div style={{ textAlign: "left", maxWidth: 320, margin: "0 auto" }}>
-            {[
-              "Gestión completa de alumnas",
-              "Control de asistencia diario",
-              "Seguimiento de pagos y matrículas",
-              "Registro rápido con teclado numérico",
-            ].map((item) => (
-              <div key={item} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <div
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    background: "rgba(200,184,216,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Check size={12} color="#C8B8D8" />
-                </div>
-                <p style={{ color: "rgba(255,255,255,0.55)", fontSize: "0.85rem" }}>{item}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -200,7 +169,7 @@ export function Register() {
             Crear Cuenta
           </h2>
           <p style={{ color: "#9D9D9D", fontSize: "0.85rem", marginBottom: 32 }}>
-            Completa los datos para registrar tu acceso administrativo.
+            Completa los datos para registrar tu acceso.
           </p>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -211,7 +180,7 @@ export function Register() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Lara González"
+                placeholder="Nombre Apellido"
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "#C8B8D8")}
                 onBlur={(e) => (e.target.style.borderColor = "#E8E4DF")}
@@ -225,7 +194,7 @@ export function Register() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@larafitstudio.cl"
+                placeholder="correo@gmail.com"
                 style={inputStyle}
                 onFocus={(e) => (e.target.style.borderColor = "#C8B8D8")}
                 onBlur={(e) => (e.target.style.borderColor = "#E8E4DF")}

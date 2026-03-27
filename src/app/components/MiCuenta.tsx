@@ -1,15 +1,46 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from "../context/AuthContext";
 import { Flower2, LogOut, User, Calendar, CreditCard, Instagram, Facebook, MapPin } from "lucide-react";
+
+import { logout, getActiveSession, getUserData } from "../../../backend/auth";
 
 export function MiCuenta() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const [user, setUser] = useState<any>(null);
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const sessionData = await getActiveSession();
+      if (!sessionData) {
+        navigate("/login");
+        return;
+      } else {
+        setSession(sessionData);
+      }
+
+      const userData = await getUserData(sessionData.id);
+      if (!userData) {
+        navigate("/login");
+        return;
+      } else {
+        setUser(userData);
+      }
+    };
+    fetchUserData();
+  }, [])
+
+  const handleLogout = async () => {
+    const error = await logout();
     navigate("/");
   };
+
+  if (!user || !session) {
+    return (
+      <div>No tienes cuenta</div>
+    )
+  }
 
   return (
     <div
@@ -55,7 +86,7 @@ export function MiCuenta() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ fontSize: "0.82rem", color: "#9D9D9D" }}>
-            Hola, <strong style={{ color: "#1A1A1A" }}>{user?.name?.split(" ")[0]}</strong>
+            Hola, <strong style={{ color: "#1A1A1A" }}>{user.nombre.split(" ")[0]}</strong>
           </span>
           <button
             onClick={handleLogout}
@@ -113,16 +144,16 @@ export function MiCuenta() {
                 flexShrink: 0,
               }}
             >
-              {user?.name?.charAt(0) || "A"}
+              {user.nombre.charAt(0) || "A"}
             </div>
             <div>
               <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.65rem", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 4 }}>
                 Mi cuenta
               </p>
               <h1 style={{ fontFamily: "'Cormorant Garamond', serif", color: "#FFFFFF", fontSize: "1.8rem", fontWeight: 400 }}>
-                {user?.name}
+                {user.nombre}
               </h1>
-              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", marginTop: 2 }}>{user?.email}</p>
+              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "0.8rem", marginTop: 2 }}>{session.email}</p>
             </div>
           </div>
           <div
@@ -149,14 +180,14 @@ export function MiCuenta() {
             {
               icon: User,
               label: "Datos personales",
-              value: user?.email || "—",
+              value: session.email || "—",
               sub: "Correo registrado",
             },
             {
               icon: Calendar,
               label: "Miembro desde",
-              value: user?.createdAt
-                ? new Date(user.createdAt).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })
+              value: user.created_at
+                ? new Date(user.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" })
                 : "—",
               sub: "Fecha de registro",
             },

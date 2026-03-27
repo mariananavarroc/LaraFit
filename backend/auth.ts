@@ -1,5 +1,14 @@
 import { supabase } from "./supabase";
 
+export async function getActiveSession() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    return null;
+  } else {
+    return data.user;
+  }
+}
+
 export type SignupResult = { success: true } | { success: false; error: string };
 
 export async function signup(params: {
@@ -24,6 +33,7 @@ export async function signup(params: {
   }
 
   const { error: insertError } = await supabase.from("usuarios").insert({
+    id_alumna: authData.user.id,
     nombre: nombre || null,
     telefono: telefono || null,
     contacto_emergencia: null,
@@ -61,4 +71,9 @@ export async function getUserData(id: string) {
   } else {
     return data;
   }
+}
+
+export async function logout() {
+  const { error } = await supabase.auth.signOut();
+  return error;
 }

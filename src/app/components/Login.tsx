@@ -23,9 +23,11 @@ export function Login() {
     const result = await login(email, password);
     setLoading(false);
     if (result.success && result.data!.user) {
-      console.log(result.data!.user.id)
-      const user = await getUserData(result.data!.user.id)
-
+      const user = await getUserData(result.data!.user.id);
+      if (!user) {
+        setError("No se encontró tu perfil. Contacta al estudio.");
+        return;
+      }
       if (user.rol === 1) {
         navigate("/dashboard");
       } else {
@@ -106,9 +108,7 @@ export function Login() {
           >
             Lara Fit Studio
           </h1>
-          <p style={{ color: "#9D9D9D", fontSize: "0.8rem", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 44 }}>
-            Área de Alumnas
-          </p>
+          
           <div
             style={{
               border: "1.5px solid rgba(200,184,216,0.4)",
@@ -136,9 +136,7 @@ export function Login() {
             <ArrowLeft size={14} /> Volver
           </button>
 
-          <p style={{ color: "#C8B8D8", fontSize: "0.7rem", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 8 }}>
-            Alumna
-          </p>
+          
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "2rem", fontWeight: 400, color: "#1A1A1A", marginBottom: 6 }}>
             Bienvenida de vuelta
           </h2>
