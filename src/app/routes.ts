@@ -2,8 +2,6 @@ import { createBrowserRouter } from "react-router";
 import { Landing } from "./components/Landing";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
-import { AlumnaLogin } from "./components/AlumnaLogin";
-import { AlumnaRegistro } from "./components/AlumnaRegistro";
 import { MiCuenta } from "./components/MiCuenta";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
@@ -23,8 +21,8 @@ export const router = createBrowserRouter([
   { path: "/login", Component: Login },
 
   // ── Alumnas ──
-  { path: "/alumna/login", Component: AlumnaLogin },
-  { path: "/alumna/registro", Component: AlumnaRegistro },
+  { path: "/alumna/login", Component: Login },
+  { path: "/alumna/registro", Component: Register },
   { path: "/mi-cuenta", Component: MiCuenta },
 
   // ── Admin auth ──
