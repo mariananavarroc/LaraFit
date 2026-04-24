@@ -505,9 +505,9 @@ export function Landing() {
             {/* Datos */}
             <div style={{ display: "flex", flexDirection: "column", gap: 18, marginBottom: 32 }}>
               {[
-                { icon: MapPin, text: "Av. Las Condes 12.450, Of. 301\nLas Condes, Santiago" },
-                { icon: Phone, text: "+56 9 1234 5678" },
-                { icon: Mail, text: "hola@larafitstudio.cl" },
+                { icon: MapPin, text: "Calle 16 Norberto Treviño Zapata & Yucatán, 281\nCd. Victoria, Tamaulipas" },
+                { icon: Phone, text: "+52 834 268 3424" },
+                { icon: Mail, text: "LaraFitst@gmail.com" },
                 { icon: Clock, text: "Lun–Vie: 07:00 – 21:00\nSáb: 09:00 – 14:00" },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} style={{ display: "flex", gap: 14 }}>

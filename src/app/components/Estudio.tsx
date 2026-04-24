@@ -328,9 +328,9 @@ export function Estudio() {
                 <MapPin size={18} color="#7B5EA7" />
               </div>
               <div>
-                <p style={{ fontSize: "0.9rem", color: "#1A1A1A", marginBottom: 4 }}>Av. Las Condes 12.450, Of. 301</p>
-                <p style={{ fontSize: "0.8rem", color: "#9D9D9D" }}>Las Condes, Santiago</p>
-                <p style={{ fontSize: "0.8rem", color: "#9D9D9D" }}>Región Metropolitana, Chile</p>
+                <p style={{ fontSize: "0.9rem", color: "#1A1A1A", marginBottom: 4 }}>Calle 16 Norberto Treviño Zapata & Yucatán, 281</p>
+                <p style={{ fontSize: "0.8rem", color: "#9D9D9D" }}>Cd. Victoria, Tamaulipas</p>
+
               </div>
             </div>
 
@@ -352,7 +352,7 @@ export function Estudio() {
             </div>
 
             <a
-              href="https://www.google.com/maps/place/Larafit+studio/@23.7578672,-99.1511342,17z/data=!3m1!4b1!4m6!3m5!1s0x8679530001d3e4cd:0x3f24d534875711b9!8m2!3d23.7578672!4d-99.1485593!16s%2Fg%2F11n3b_yx44?entry=ttu&g_ep=EgoyMDI2MDMwMi4wIKXMDSoASAFQAw%3D%3D"
+              href="https://maps.app.goo.gl/yf1NRSwYGWgwbero9"
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -413,7 +413,7 @@ export function Estudio() {
               >
                 <MapPin size={24} color="#1A1A1A" />
               </div>
-              <p style={{ fontSize: "0.85rem", color: "#6B6560" }}>Las Condes, Santiago</p>
+              <p style={{ fontSize: "0.85rem", color: "#6B6560" }}>Cd. Victoria, Tamaulipas</p>
               <p style={{ fontSize: "0.72rem", color: "#C0BAB4", marginTop: 4 }}>Lara Fit Studio</p>
             </div>
           </div>
