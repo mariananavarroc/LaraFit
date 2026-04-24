@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { students } from "../data/mockData";
+import { getAlumnaById } from "../../../backend/alumnas";
+import type { Student } from "../data/mockData";
 import {
   ChevronLeft,
   Phone,
@@ -13,15 +14,100 @@ import {
   XCircle,
   MinusCircle,
   Edit2,
+  X,
+  Save,
 } from "lucide-react";
 
 export function AlumnaProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const student = students.find((s) => s.id === id);
-
+  const [student, setStudent] = useState<Student | null>(null);
+  const [loading, setLoading] = useState(true);
   const [inactiva, setInactiva] = useState(false);
   const [mostrarAlerta, setMostrarAlerta] = useState(false);
+  const [mostrarEditar, setMostrarEditar] = useState(false);
+  const [editData, setEditData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    plan: '',
+    schedule: '',
+  });
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    getAlumnaById(id)
+      .then((studentData) => {
+        setStudent(studentData);
+        // Inicializar datos de edición
+        if (studentData) {
+          setEditData({
+            name: studentData.name,
+            phone: studentData.phone,
+            email: studentData.email,
+            plan: studentData.plan,
+            schedule: studentData.schedule,
+          });
+        }
+      })
+      .catch(() => setStudent(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const handleEditar = () => {
+    setMostrarEditar(true);
+  };
+
+  const handleGuardarCambios = async () => {
+    if (!student) return;
+
+    setGuardando(true);
+    try {
+      // Aquí iría la lógica para actualizar en Supabase
+      // Por ahora solo simulamos
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Actualizar el estado local
+      setStudent({
+        ...student,
+        name: editData.name,
+        phone: editData.phone,
+        email: editData.email,
+        plan: editData.plan,
+        schedule: editData.schedule,
+      });
+
+      setMostrarEditar(false);
+      alert('Cambios guardados correctamente');
+    } catch (error) {
+      alert('Error al guardar cambios');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const handleCancelarEdicion = () => {
+    // Resetear datos de edición
+    if (student) {
+      setEditData({
+        name: student.name,
+        phone: student.phone,
+        email: student.email,
+        plan: student.plan,
+        schedule: student.schedule,
+      });
+    }
+    setMostrarEditar(false);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: 40, color: "#9D9D9D", textAlign: "center" }}>
+        Cargando alumna...
+      </div>
+    );
+  }
 
   if (!student) {
     return (
@@ -134,6 +220,7 @@ export function AlumnaProfile() {
         {/* Botones Editar e Inactivar */}
         <div style={{ display: "flex", gap: 10 }}>
           <button
+            onClick={handleEditar}
             style={{
               background: "transparent",
               border: "1.5px solid #E8DFF0",
@@ -656,6 +743,204 @@ export function AlumnaProfile() {
                 }}
               >
                 {inactiva ? "Sí, reactivar" : "Sí, inactivar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup de edición */}
+      {mostrarEditar && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              background: "#FFFFFF",
+              borderRadius: 20,
+              padding: "32px 40px",
+              maxWidth: 500,
+              width: "90%",
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.5rem", color: "#1A1A1A" }}>
+                Editar Alumna
+              </h2>
+              <button
+                onClick={handleCancelarEdicion}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#9D9D9D",
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "#9D9D9D", marginBottom: 8 }}>
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  value={editData.name}
+                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1.5px solid #E8E4DF",
+                    fontSize: "0.9rem",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "#9D9D9D", marginBottom: 8 }}>
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  value={editData.phone}
+                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1.5px solid #E8E4DF",
+                    fontSize: "0.9rem",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "#9D9D9D", marginBottom: 8 }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editData.email}
+                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1.5px solid #E8E4DF",
+                    fontSize: "0.9rem",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "#9D9D9D", marginBottom: 8 }}>
+                  Plan
+                </label>
+                <select
+                  value={editData.plan}
+                  onChange={(e) => setEditData({ ...editData, plan: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1.5px solid #E8E4DF",
+                    fontSize: "0.9rem",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  <option value="Plan Básico">Plan Básico</option>
+                  <option value="Plan Premium">Plan Premium</option>
+                  <option value="Plan Mensual">Plan Mensual</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.72rem", color: "#9D9D9D", marginBottom: 8 }}>
+                  Horario
+                </label>
+                <select
+                  value={editData.schedule}
+                  onChange={(e) => setEditData({ ...editData, schedule: e.target.value })}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    border: "1.5px solid #E8E4DF",
+                    fontSize: "0.9rem",
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                >
+                  <option value="Lunes, Miércoles, Viernes — 9:00 AM">Lunes, Miércoles, Viernes — 9:00 AM</option>
+                  <option value="Martes, Jueves — 7:00 AM">Martes, Jueves — 7:00 AM</option>
+                  <option value="Lunes, Miércoles, Viernes — 6:00 PM">Lunes, Miércoles, Viernes — 6:00 PM</option>
+                  <option value="Sábado — 10:00 AM">Sábado — 10:00 AM</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+              <button
+                onClick={handleCancelarEdicion}
+                style={{
+                  flex: 1,
+                  padding: "12px 24px",
+                  borderRadius: 10,
+                  border: "1.5px solid #E8E4DF",
+                  background: "transparent",
+                  color: "#9D9D9D",
+                  fontSize: "0.9rem",
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardarCambios}
+                disabled={guardando}
+                style={{
+                  flex: 1,
+                  padding: "12px 24px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: guardando ? "#E8E4DF" : "#C8B8D8",
+                  color: guardando ? "#9D9D9D" : "#FFFFFF",
+                  fontSize: "0.9rem",
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: guardando ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                }}
+              >
+                {guardando ? (
+                  <>Guardando...</>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Guardar cambios
+                  </>
+                )}
               </button>
             </div>
           </div>

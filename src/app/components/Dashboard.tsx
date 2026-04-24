@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { students } from "../data/mockData";
+import { getAlumnas } from "../../../backend/alumnas";
+import type { Student } from "../data/mockData";
 import {
   Users,
   TrendingUp,
@@ -94,6 +96,16 @@ function StatCard({
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getAlumnas()
+      .then(setStudents)
+      .catch(() => setStudents([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   const total = students.length;
   const alDia = students.filter((s) => s.paymentStatus === "Al día").length;
   const pendientes = students.filter((s) => s.paymentStatus !== "Al día").length;

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { students, Student } from "../data/mockData";
+import { getAlumnas } from "../../../backend/alumnas";
+import type { Student } from "../data/mockData";
 import {
   Search,
   Plus,
@@ -33,8 +34,17 @@ function PaymentBadge({ status }: { status: Student["paymentStatus"] }) {
 
 export function Alumnas() {
   const navigate = useNavigate();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Al día" | "Pendiente" | "Vencido">("Todas");
+
+  useEffect(() => {
+    getAlumnas()
+      .then(setStudents)
+      .catch(() => setStudents([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = students.filter((s) => {
     const matchSearch =
@@ -63,7 +73,7 @@ export function Alumnas() {
             Alumnas
           </h1>
           <p style={{ color: "#9D9D9D", fontSize: "0.85rem", marginTop: 4 }}>
-            {students.length} alumnas registradas en el estudio.
+            {loading ? "Cargando alumnas..." : `${students.length} alumnas registradas en el estudio.`}
           </p>
         </div>
         <button

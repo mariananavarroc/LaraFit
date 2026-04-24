@@ -38,7 +38,7 @@ export async function signup(params: {
     telefono: telefono || null,
     contacto_emergencia: null,
     estado: true,
-    rol: 2,
+    rol: email === "admin@larafit.cl" ? 1 : 2,
   });
 
   if (insertError) {

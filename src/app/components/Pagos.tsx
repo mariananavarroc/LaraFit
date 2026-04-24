@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { students } from "../data/mockData";
+import { useEffect, useState } from "react";
+import { getAlumnas } from "../../../backend/alumnas";
+import { getPagos, type PaymentRecord } from "../../../backend/pagos";
+import type { Student } from "../data/mockData";
 import {
   CreditCard,
   Bell,
@@ -11,12 +13,30 @@ import {
 } from "lucide-react";
 
 export function Pagos() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [sentReminders, setSentReminders] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalIngresos = students
-    .flatMap((s) => s.payments)
-    .filter((p) => p.status === "Pagado")
-    .reduce((acc, p) => acc + p.amount, 0);
+  useEffect(() => {
+    Promise.all([
+      getAlumnas(),
+      getPagos()
+    ])
+      .then(([studentsData, paymentsData]) => {
+        setStudents(studentsData);
+        setPayments(paymentsData);
+      })
+      .catch(() => {
+        setStudents([]);
+        setPayments([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const totalIngresos = payments
+    .filter((p) => p.estado === "Pagado")
+    .reduce((acc, p) => acc + p.monto, 0);
 
   const pendientesAlumnas = students.filter(
     (s) => s.paymentStatus === "Pendiente" || s.paymentStatus === "Vencido"

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { createAlumna } from "../../../backend/alumnas";
 import { ChevronLeft, Save, UserPlus } from "lucide-react";
 
 function Field({
@@ -70,9 +71,22 @@ export function NuevaAlumna() {
   });
 
   const set = (k: string) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = () => {
-    alert("¡Alumna registrada exitosamente! (demo)");
+  const handleSubmit = async () => {
+    if (saving) return;
+    setSaving(true);
+    setMessage("");
+
+    const response = await createAlumna(form);
+    setSaving(false);
+
+    if (!response.success) {
+      setMessage("No se pudo guardar la alumna. Intenta nuevamente.");
+      return;
+    }
+
     navigate("/dashboard/alumnas");
   };
 
@@ -283,6 +297,21 @@ export function NuevaAlumna() {
             }}
           />
         </div>
+
+        {message ? (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: "12px 16px",
+              borderRadius: 12,
+              background: "rgba(242,212,215,0.25)",
+              color: "#B05070",
+              fontSize: "0.9rem",
+            }}
+          >
+            {message}
+          </div>
+        ) : null}
 
         <div className="flex justify-end gap-3">
           <button

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { students } from "../data/mockData";
+import { useEffect, useState } from "react";
+import { getAlumnas } from "../../../backend/alumnas";
+import type { Student } from "../data/mockData";
 import {
   Delete,
   CheckCircle2,
@@ -13,9 +14,16 @@ type ResultState = "idle" | "found" | "notfound";
 export function RegistroMatricula() {
   const [input, setInput] = useState("");
   const [result, setResultState] = useState<ResultState>("idle");
-  const [foundStudent, setFoundStudent] = useState<(typeof students)[0] | null>(null);
+  const [foundStudent, setFoundStudent] = useState<Student | null>(null);
   const [registered, setRegistered] = useState<string[]>([]);
   const [shake, setShake] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+
+  useEffect(() => {
+    getAlumnas()
+      .then(setStudents)
+      .catch(() => setStudents([]));
+  }, []);
 
   const MAX = 7; // e.g. LFS-001
 

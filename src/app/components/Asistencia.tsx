@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { students, AttendanceStatus } from "../data/mockData";
-import { CheckCircle2, XCircle, MinusCircle, CalendarDays, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getAlumnas } from "../../../backend/alumnas";
+import { getAsistencia, createMultipleAsistencia, type AttendanceRecord } from "../../../backend/asistencia";
+import type { Student } from "../data/mockData";
+import { CheckCircle2, XCircle, CalendarDays, ChevronDown, Save } from "lucide-react";
 
 const classes = [
   "Todas las clases",
@@ -25,44 +27,109 @@ type AttRecord = {
   studentName: string;
   initials: string;
   class: string;
-  status: AttendanceStatus;
+  present: boolean;
 };
 
 export function Asistencia() {
   const [selectedClass, setSelectedClass] = useState("Todas las clases");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [attendance, setAttendance] = useState<AttRecord[]>(
-    students.map((s, i) => ({
-      studentId: s.id,
-      studentName: s.name,
-      initials: s.initials,
-      class: s.schedule.split("—")[1]?.trim().includes("9:00")
-        ? "Pilates Matinal"
-        : s.schedule.includes("Reformer")
-        ? "Pilates Reformer"
-        : s.schedule.includes("6:00 PM")
-        ? "Pilates Vespertino"
-        : s.schedule.includes("Sábado")
-        ? "Pilates Fin de Semana"
-        : ["Barre Fitness", "Yoga Flow", "Pilates Matinal", "Yoga Nocturno"][i % 4],
-      status: i % 4 === 3 ? "Ausente" : "Presente",
-    }))
-  );
+  const [students, setStudents] = useState<Student[]>([]);
+  const [attendance, setAttendance] = useState<AttRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadAttendance();
+  }, [date]);
+
+  const loadAttendance = async () => {
+    setLoading(true);
+    try {
+      const [studentsData, attendanceData] = await Promise.all([
+        getAlumnas(),
+        getAsistencia(date)
+      ]);
+
+      setStudents(studentsData);
+
+      // Create attendance records for all students
+      const attendanceMap = new Map(attendanceData.map(a => [`${a.id_alumna}-${a.fecha}`, a]));
+
+      const attendanceRecords = studentsData.map((s, i) => {
+        const existing = attendanceMap.get(`${s.id}-${date}`);
+        return {
+          studentId: s.id,
+          studentName: s.name,
+          initials: s.initials,
+          class: s.schedule.split("—")[1]?.trim().includes("9:00")
+            ? "Pilates Matinal"
+            : s.schedule.includes("Reformer")
+            ? "Pilates Reformer"
+            : s.schedule.includes("6:00 PM")
+            ? "Pilates Vespertino"
+            : s.schedule.includes("Sábado")
+            ? "Pilates Fin de Semana"
+            : ["Barre Fitness", "Yoga Flow", "Pilates Matinal", "Yoga Nocturno"][i % 4],
+          present: !!existing, // true si ya existe un registro de asistencia
+        };
+      });
+
+      setAttendance(attendanceRecords);
+    } catch (error) {
+      console.error('Error loading attendance:', error);
+      setStudents([]);
+      setAttendance([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveAttendance = async () => {
+    setSaving(true);
+    try {
+      // Solo guardar asistencia para estudiantes presentes
+      const attendanceToSave = attendance
+        .filter(a => a.present)
+        .map(a => ({
+          id_alumna: a.studentId,
+          fecha: date,
+          // No incluir estado ni clase por ahora
+        }));
+
+      if (attendanceToSave.length === 0) {
+        alert('No hay asistencia para guardar');
+        setSaving(false);
+        return;
+      }
+
+      const result = await createMultipleAsistencia(attendanceToSave);
+      if (result.success) {
+        alert('Asistencia guardada correctamente');
+        // Recargar asistencia para mostrar los datos guardados
+        loadAttendance();
+      } else {
+        alert('Error al guardar asistencia: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+      alert('Error al guardar asistencia');
+    } finally {
+      setSaving(false);
+    }
+  };
+  const toggleAttendance = (studentId: string, present: boolean) => {
+    setAttendance((prev) =>
+      prev.map((a) => (a.studentId === studentId ? { ...a, present } : a))
+    );
+  };
 
   const filtered =
     selectedClass === "Todas las clases"
       ? attendance
-      : attendance.filter((a) => a.class === selectedClass);
+      : attendance.filter((a) => a.class === selectedClass || selectedClass === "General");
 
-  const setStatus = (studentId: string, status: AttendanceStatus) => {
-    setAttendance((prev) =>
-      prev.map((a) => (a.studentId === studentId ? { ...a, status } : a))
-    );
-  };
-
-  const presentes = filtered.filter((a) => a.status === "Presente").length;
-  const ausentes = filtered.filter((a) => a.status === "Ausente").length;
-  const justificados = filtered.filter((a) => a.status === "Justificado").length;
+  const presentes = filtered.filter((a) => a.present).length;
+  const ausentes = filtered.filter((a) => !a.present).length;
 
   return (
     <div style={{ padding: "40px 48px", maxWidth: 1100 }}>
@@ -88,6 +155,28 @@ export function Asistencia() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={saveAttendance}
+            disabled={saving}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: saving ? "#E8E4DF" : "#C8B8D8",
+              color: saving ? "#9D9D9D" : "#FFFFFF",
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 16px",
+              fontSize: "0.85rem",
+              fontFamily: "'DM Sans', sans-serif",
+              cursor: saving ? "not-allowed" : "pointer",
+              boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
+              transition: "all 0.2s",
+            }}
+          >
+            <Save size={14} />
+            {saving ? "Guardando..." : "Guardar Asistencia"}
+          </button>
           <div
             style={{
               display: "flex",
@@ -118,11 +207,10 @@ export function Asistencia() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+      <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
         {[
           { label: "Presentes", value: presentes, color: "rgba(209,231,201,0.4)", text: "#4A7C59" },
           { label: "Ausentes", value: ausentes, color: "rgba(242,212,215,0.5)", text: "#B05070" },
-          { label: "Justificados", value: justificados, color: "rgba(200,184,216,0.3)", text: "#7B5EA7" },
         ].map((item) => (
           <div
             key={item.label}
@@ -221,7 +309,7 @@ export function Asistencia() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#FDFCFB", borderBottom: "1px solid #F0EDE8" }}>
-              {["Alumna", "Clase", "Estado", "Marcar Asistencia"].map((h) => (
+              {["Alumna", "Clase", "Presente", "Marcar Asistencia"].map((h) => (
                 <th
                   key={h}
                   style={{
@@ -290,76 +378,28 @@ export function Asistencia() {
                         padding: "4px 12px",
                         borderRadius: 20,
                         fontSize: "0.75rem",
-                        background:
-                          a.status === "Presente"
-                            ? "rgba(209,231,201,0.4)"
-                            : a.status === "Justificado"
-                            ? "rgba(200,184,216,0.3)"
-                            : "rgba(242,212,215,0.4)",
-                        color:
-                          a.status === "Presente"
-                            ? "#4A7C59"
-                            : a.status === "Justificado"
-                            ? "#7B5EA7"
-                            : "#B05070",
+                        background: a.present ? "rgba(209,231,201,0.4)" : "rgba(242,212,215,0.4)",
+                        color: a.present ? "#4A7C59" : "#B05070",
                       }}
                     >
-                      {a.status === "Presente" ? (
-                        <CheckCircle2 size={12} />
-                      ) : a.status === "Justificado" ? (
-                        <MinusCircle size={12} />
-                      ) : (
-                        <XCircle size={12} />
-                      )}
-                      {a.status}
+                      {a.present ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                      {a.present ? "Presente" : "Ausente"}
                     </span>
                   </td>
                   <td style={{ padding: "16px 24px" }}>
-                    <div className="flex items-center gap-2">
-                      {(["Presente", "Ausente", "Justificado"] as AttendanceStatus[]).map(
-                        (s) => (
-                          <button
-                            key={s}
-                            onClick={() => setStatus(a.studentId, s)}
-                            style={{
-                              padding: "5px 12px",
-                              borderRadius: 8,
-                              border:
-                                a.status === s
-                                  ? "1.5px solid " +
-                                    (s === "Presente"
-                                      ? "#7AC99A"
-                                      : s === "Justificado"
-                                      ? "#C8B8D8"
-                                      : "#EAA0B0")
-                                  : "1.5px solid #E8E4DF",
-                              background:
-                                a.status === s
-                                  ? s === "Presente"
-                                    ? "rgba(209,231,201,0.3)"
-                                    : s === "Justificado"
-                                    ? "rgba(200,184,216,0.2)"
-                                    : "rgba(242,212,215,0.3)"
-                                  : "transparent",
-                              color:
-                                a.status === s
-                                  ? s === "Presente"
-                                    ? "#4A7C59"
-                                    : s === "Justificado"
-                                    ? "#7B5EA7"
-                                    : "#B05070"
-                                  : "#C0BAB4",
-                              fontSize: "0.72rem",
-                              cursor: "pointer",
-                              fontFamily: "'DM Sans', sans-serif",
-                              transition: "all 0.15s",
-                            }}
-                          >
-                            {s}
-                          </button>
-                        )
-                      )}
-                    </div>
+                    <input
+                      type="checkbox"
+                      checked={a.present}
+                      onChange={(e) => toggleAttendance(a.studentId, e.target.checked)}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        border: "2px solid #E8E4DF",
+                        background: a.present ? "#7AC99A" : "transparent",
+                        cursor: "pointer",
+                      }}
+                    />
                   </td>
                 </tr>
               );
