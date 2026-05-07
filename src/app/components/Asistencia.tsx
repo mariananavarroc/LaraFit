@@ -1,17 +1,13 @@
-import { useState } from "react";
-import { students, AttendanceStatus } from "../data/mockData";
-import { CheckCircle2, XCircle, MinusCircle, CalendarDays, ChevronDown } from "lucide-react";
-
-const classes = [
-  "Todas las clases",
-  "Pilates Matinal",
-  "Pilates Reformer",
-  "Pilates Vespertino",
-  "Pilates Fin de Semana",
-  "Barre Fitness",
-  "Yoga Flow",
-  "Yoga Nocturno",
-];
+import { useEffect, useMemo, useState } from "react";
+import {
+  getAttendanceForDate,
+  listAttendanceRowsByDateRange,
+  getPresentAttendanceDaysByStudent,
+  updateAttendanceStatusForDate,
+  listHorarioOptions,
+  getStudentsByIds,
+} from "../../../backend/adminData";
+import { CheckCircle2, XCircle, CalendarDays, ChevronDown } from "lucide-react";
 
 const today = new Date().toLocaleDateString("es-CL", {
   weekday: "long",
@@ -25,44 +21,171 @@ type AttRecord = {
   studentName: string;
   initials: string;
   class: string;
-  status: AttendanceStatus;
+  horario: string;
+  status: "Presente" | "Ausente";
 };
+
+function toLocalISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 export function Asistencia() {
   const [selectedClass, setSelectedClass] = useState("Todas las clases");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [attendance, setAttendance] = useState<AttRecord[]>(
-    students.map((s, i) => ({
-      studentId: s.id,
-      studentName: s.name,
-      initials: s.initials,
-      class: s.schedule.split("—")[1]?.trim().includes("9:00")
-        ? "Pilates Matinal"
-        : s.schedule.includes("Reformer")
-        ? "Pilates Reformer"
-        : s.schedule.includes("6:00 PM")
-        ? "Pilates Vespertino"
-        : s.schedule.includes("Sábado")
-        ? "Pilates Fin de Semana"
-        : ["Barre Fitness", "Yoga Flow", "Pilates Matinal", "Yoga Nocturno"][i % 4],
-      status: i % 4 === 3 ? "Ausente" : "Presente",
-    }))
+  const [date, setDate] = useState(toLocalISODate(new Date()));
+  const [attendance, setAttendance] = useState<AttRecord[]>([]);
+  const [presentByStudent, setPresentByStudent] = useState<Record<string, string[]>>({});
+  const [nameFilter, setNameFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError("");
+      try {
+        const [savedAttendance, presentMap, horarios] = await Promise.all([
+          getAttendanceForDate(date),
+          getPresentAttendanceDaysByStudent(),
+          listHorarioOptions(),
+        ]);
+        setPresentByStudent(presentMap);
+
+        const ids = Array.from(new Set(savedAttendance.map((r) => r.id_alumna).filter(Boolean)));
+        const students = await getStudentsByIds(ids);
+        const studentById = new Map(students.map((s) => [s.id, s]));
+        const horarioById = new Map(horarios.map((h) => [h.id, h.label]));
+        const rows = savedAttendance.map((saved) => {
+          const student = studentById.get(saved.id_alumna);
+          return {
+            studentId: saved.id_alumna,
+            studentName: student?.name ?? "Alumna",
+            initials: student?.initials ?? "AL",
+            class: (saved.clase ?? saved.clase_nombre ?? "Clase").trim(),
+            horario: saved.id_horario ? horarioById.get(String(saved.id_horario)) ?? "—" : "—",
+            status: saved.estado === "Presente" ? "Presente" : "Ausente",
+          } satisfies AttRecord;
+        });
+        setAttendance(rows);
+        setPendingUpdates({});
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "No se pudo cargar asistencia");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadData();
+  }, [date]);
+
+  const filtered = useMemo(() => {
+    const q = nameFilter.trim().toLowerCase();
+    let rows =
+      selectedClass === "Todas las clases"
+        ? attendance
+        : attendance.filter((a) => a.class === selectedClass);
+    if (q) {
+      rows = rows.filter((a) => a.studentName.toLowerCase().includes(q));
+    }
+    return rows;
+  }, [attendance, selectedClass, nameFilter]);
+  const classOptions = useMemo(
+    () => ["Todas las clases", ...Array.from(new Set(attendance.map((a) => a.class))).sort((a, b) => a.localeCompare(b, "es"))],
+    [attendance],
   );
+  const [pendingUpdates, setPendingUpdates] = useState<Record<string, "Presente" | "Ausente">>({});
+  const [savingPending, setSavingPending] = useState(false);
 
-  const filtered =
-    selectedClass === "Todas las clases"
-      ? attendance
-      : attendance.filter((a) => a.class === selectedClass);
+  const markAttendanceLocal = (studentId: string, status: "Presente" | "Ausente") => {
+    setAttendance((prev) => prev.map((a) => (a.studentId === studentId ? { ...a, status } : a)));
+    setPendingUpdates((prev) => ({ ...prev, [studentId]: status }));
+  };
 
-  const setStatus = (studentId: string, status: AttendanceStatus) => {
-    setAttendance((prev) =>
-      prev.map((a) => (a.studentId === studentId ? { ...a, status } : a))
-    );
+  const handleRegisterAttendance = async () => {
+    const updates = Object.entries(pendingUpdates).map(([studentId, status]) => ({
+      studentId,
+      status,
+    }));
+
+    if (updates.length === 0) {
+      alert("No hay cambios para registrar.");
+      return;
+    }
+
+    setSavingPending(true);
+    try {
+      await updateAttendanceStatusForDate({ date, updates: updates as any });
+      setPendingUpdates({});
+      alert("Asistencia registrada.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo registrar la asistencia.");
+    } finally {
+      setSavingPending(false);
+    }
   };
 
   const presentes = filtered.filter((a) => a.status === "Presente").length;
   const ausentes = filtered.filter((a) => a.status === "Ausente").length;
-  const justificados = filtered.filter((a) => a.status === "Justificado").length;
+
+  const handleExportMonth = async () => {
+    if (Object.keys(pendingUpdates).length > 0) {
+      await handleRegisterAttendance();
+    }
+    const [y, m] = exportMonth.split("-").map(Number);
+    if (!y || !m) return;
+    const first = `${y}-${String(m).padStart(2, "0")}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const last = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const rows = await listAttendanceRowsByDateRange({ fromDate: first, toDate: last });
+    const tableRows = rows
+      .map(
+        (r) => `
+          <tr>
+            <td>${r.studentName}</td>
+            <td>${r.className}</td>
+            <td>${r.horario ?? ""}</td>
+            <td>${r.status}</td>
+            <td>${r.day}</td>
+            <td>${r.hour}</td>
+          </tr>
+        `,
+      )
+      .join("");
+    const html = `<!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>Asistencia</title>
+        </head>
+        <body>
+          <table border="1" style="border-collapse:collapse;font-family:Arial;width:100%;">
+            <thead>
+              <tr style="background:#F3F0EC;">
+                <th>Alumna</th>
+                <th>Clase</th>
+                <th>Horario</th>
+                <th>Estado</th>
+                <th>Día</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>`;
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `asistencia-${exportMonth}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div style={{ padding: "40px 48px", maxWidth: 1100 }}>
@@ -118,11 +241,10 @@ export function Asistencia() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+      <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
         {[
           { label: "Presentes", value: presentes, color: "rgba(209,231,201,0.4)", text: "#4A7C59" },
           { label: "Ausentes", value: ausentes, color: "rgba(242,212,215,0.5)", text: "#B05070" },
-          { label: "Justificados", value: justificados, color: "rgba(200,184,216,0.3)", text: "#7B5EA7" },
         ].map((item) => (
           <div
             key={item.label}
@@ -151,9 +273,7 @@ export function Asistencia() {
                 <CheckCircle2 size={20} color={item.text} />
               ) : item.label === "Ausentes" ? (
                 <XCircle size={20} color={item.text} />
-              ) : (
-                <MinusCircle size={20} color={item.text} />
-              )}
+              ) : null}
             </div>
             <div>
               <p style={{ fontSize: "0.72rem", color: "#9D9D9D" }}>{item.label}</p>
@@ -173,8 +293,25 @@ export function Asistencia() {
         ))}
       </div>
 
-      {/* Class Filter */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* Class Filter + buscar alumna */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <input
+          type="search"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          placeholder="Buscar alumna por nombre…"
+          style={{
+            minWidth: 220,
+            padding: "9px 14px",
+            borderRadius: 10,
+            border: "1.5px solid #E8E4DF",
+            background: "#FFFFFF",
+            fontSize: "0.82rem",
+            color: "#1A1A1A",
+            fontFamily: "'DM Sans', sans-serif",
+            outline: "none",
+          }}
+        />
         <div
           style={{
             position: "relative",
@@ -197,7 +334,7 @@ export function Asistencia() {
               outline: "none",
             }}
           >
-            {classes.map((c) => (
+            {classOptions.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
@@ -208,6 +345,12 @@ export function Asistencia() {
           />
         </div>
       </div>
+
+      {error && (
+        <div style={{ marginBottom: 16, color: "#B05070", fontSize: "0.82rem" }}>
+          {error}
+        </div>
+      )}
 
       {/* Attendance Table */}
       <div
@@ -221,7 +364,7 @@ export function Asistencia() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#FDFCFB", borderBottom: "1px solid #F0EDE8" }}>
-              {["Alumna", "Clase", "Estado", "Marcar Asistencia"].map((h) => (
+              {["Alumna", "Días cumplidos", "Clase", "Horario", "Estado", "Marcar Asistencia"].map((h) => (
                 <th
                   key={h}
                   style={{
@@ -241,7 +384,7 @@ export function Asistencia() {
           </thead>
           <tbody>
             {filtered.map((a, i) => {
-              const student = students.find((s) => s.id === a.studentId);
+              const days = presentByStudent[a.studentId] ?? [];
               return (
                 <tr
                   key={a.studentId}
@@ -273,13 +416,48 @@ export function Asistencia() {
                       <div>
                         <p style={{ fontSize: "0.85rem", color: "#1A1A1A" }}>{a.studentName}</p>
                         <p style={{ fontSize: "0.72rem", color: "#C0BAB4" }}>
-                          {student?.matricula}
+                          {a.studentId}
                         </p>
                       </div>
                     </div>
                   </td>
+                  <td style={{ padding: "16px 24px", maxWidth: 280, verticalAlign: "top" }}>
+                    <p style={{ fontSize: "0.72rem", color: "#7B5EA7", marginBottom: 6, fontWeight: 600 }}>
+                      {days.length} día{days.length === 1 ? "" : "s"} con asistencia
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {days.length === 0 ? (
+                        <span style={{ fontSize: "0.72rem", color: "#C0BAB4" }}>—</span>
+                      ) : (
+                        days.slice(0, 12).map((d) => (
+                          <span
+                            key={d}
+                            style={{
+                              fontSize: "0.65rem",
+                              padding: "3px 8px",
+                              borderRadius: 8,
+                              background: "rgba(209,231,201,0.45)",
+                              color: "#4A7C59",
+                              border: "1px solid rgba(74,124,89,0.25)",
+                            }}
+                          >
+                            {new Date(d + "T12:00:00").toLocaleDateString("es-CL", {
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </span>
+                        ))
+                      )}
+                      {days.length > 12 ? (
+                        <span style={{ fontSize: "0.65rem", color: "#9D9D9D" }}>+{days.length - 12}</span>
+                      ) : null}
+                    </div>
+                  </td>
                   <td style={{ padding: "16px 24px", fontSize: "0.82rem", color: "#9D9D9D" }}>
                     {a.class}
+                  </td>
+                  <td style={{ padding: "16px 24px", fontSize: "0.82rem", color: "#9D9D9D" }}>
+                    {a.horario}
                   </td>
                   <td style={{ padding: "16px 24px" }}>
                     <span
@@ -293,21 +471,15 @@ export function Asistencia() {
                         background:
                           a.status === "Presente"
                             ? "rgba(209,231,201,0.4)"
-                            : a.status === "Justificado"
-                            ? "rgba(200,184,216,0.3)"
                             : "rgba(242,212,215,0.4)",
                         color:
                           a.status === "Presente"
                             ? "#4A7C59"
-                            : a.status === "Justificado"
-                            ? "#7B5EA7"
                             : "#B05070",
                       }}
                     >
                       {a.status === "Presente" ? (
                         <CheckCircle2 size={12} />
-                      ) : a.status === "Justificado" ? (
-                        <MinusCircle size={12} />
                       ) : (
                         <XCircle size={12} />
                       )}
@@ -316,43 +488,37 @@ export function Asistencia() {
                   </td>
                   <td style={{ padding: "16px 24px" }}>
                     <div className="flex items-center gap-2">
-                      {(["Presente", "Ausente", "Justificado"] as AttendanceStatus[]).map(
+                      {(["Presente", "Ausente"] as ("Presente" | "Ausente")[]).map(
                         (s) => (
                           <button
                             key={s}
-                            onClick={() => setStatus(a.studentId, s)}
+                            onClick={() => markAttendanceLocal(a.studentId, s)}
+                            disabled={savingPending}
                             style={{
                               padding: "5px 12px",
                               borderRadius: 8,
                               border:
                                 a.status === s
                                   ? "1.5px solid " +
-                                    (s === "Presente"
-                                      ? "#7AC99A"
-                                      : s === "Justificado"
-                                      ? "#C8B8D8"
-                                      : "#EAA0B0")
+                                    (s === "Presente" ? "#7AC99A" : "#EAA0B0")
                                   : "1.5px solid #E8E4DF",
                               background:
                                 a.status === s
                                   ? s === "Presente"
                                     ? "rgba(209,231,201,0.3)"
-                                    : s === "Justificado"
-                                    ? "rgba(200,184,216,0.2)"
                                     : "rgba(242,212,215,0.3)"
                                   : "transparent",
                               color:
                                 a.status === s
                                   ? s === "Presente"
                                     ? "#4A7C59"
-                                    : s === "Justificado"
-                                    ? "#7B5EA7"
                                     : "#B05070"
                                   : "#C0BAB4",
                               fontSize: "0.72rem",
                               cursor: "pointer",
                               fontFamily: "'DM Sans', sans-serif",
                               transition: "all 0.15s",
+                              opacity: savingPending ? 0.7 : 1,
                             }}
                           >
                             {s}
@@ -368,21 +534,52 @@ export function Asistencia() {
         </table>
       </div>
 
-      <div className="flex justify-end mt-4">
+      <div className="flex justify-end mt-4 gap-2">
+        <input
+          type="month"
+          value={exportMonth}
+          onChange={(e) => setExportMonth(e.target.value)}
+          style={{
+            border: "1.5px solid #E8E4DF",
+            borderRadius: 10,
+            padding: "10px 12px",
+            background: "#fff",
+            fontSize: "0.82rem",
+            color: "#1A1A1A",
+          }}
+        />
         <button
-          onClick={() => alert("¡Asistencia guardada! (demo)")}
+          onClick={handleExportMonth}
+          style={{
+            background: "#FFFFFF",
+            border: "1.5px solid #E8E4DF",
+            borderRadius: 12,
+            padding: "11px 20px",
+            cursor: "pointer",
+            fontSize: "0.85rem",
+            color: "#5C5650",
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          Descargar Excel
+        </button>
+        <button
+          type="button"
+          onClick={handleRegisterAttendance}
+          disabled={savingPending || loading}
           style={{
             background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
             border: "none",
             borderRadius: 12,
-            padding: "11px 28px",
-            cursor: "pointer",
+            padding: "11px 24px",
+            cursor: savingPending ? "default" : "pointer",
             fontSize: "0.85rem",
             color: "#1A1A1A",
             fontFamily: "'DM Sans', sans-serif",
+            opacity: savingPending || loading ? 0.7 : 1,
           }}
         >
-          Guardar Asistencia
+          {savingPending ? "Registrando..." : "Registrar Asistencia"}
         </button>
       </div>
     </div>

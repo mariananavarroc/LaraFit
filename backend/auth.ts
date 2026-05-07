@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { ensureStudentMatriculaIfMissing } from "./adminData";
 
 export async function getActiveSession() {
   const { data, error } = await supabase.auth.getUser();
@@ -43,6 +44,12 @@ export async function signup(params: {
 
   if (insertError) {
     return { success: false, error: insertError.message };
+  }
+
+  try {
+    await ensureStudentMatriculaIfMissing(authData.user.id);
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "No se pudo asignar matrícula." };
   }
 
   return { success: true };

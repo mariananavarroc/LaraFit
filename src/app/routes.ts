@@ -12,6 +12,7 @@ import { Asistencia } from "./components/Asistencia";
 import { Pagos } from "./components/Pagos";
 import { RegistroMatricula } from "./components/RegistroMatricula";
 import { Estudio } from "./components/Estudio";
+import { CitasAdmin } from "./components/CitasAdmin";
 
 export const router = createBrowserRouter([
   // ── Pública ──
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
           { path: "alumnas/nueva", Component: NuevaAlumna },
           { path: "alumnas/:id", Component: AlumnaProfile },
           { path: "asistencia", Component: Asistencia },
+          { path: "citas", Component: CitasAdmin },
           { path: "pagos", Component: Pagos },
           { path: "registro", Component: RegistroMatricula },
         ],

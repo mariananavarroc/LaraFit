@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { students, Student } from "../data/mockData";
+import { Student } from "../data/mockData";
 import {
   Search,
   Plus,
   ChevronRight,
   SlidersHorizontal,
 } from "lucide-react";
+import { getAdminStudents } from "../../../backend/adminData";
 
 function PaymentBadge({ status }: { status: Student["paymentStatus"] }) {
   const styles = {
@@ -33,16 +34,37 @@ function PaymentBadge({ status }: { status: Student["paymentStatus"] }) {
 
 export function Alumnas() {
   const navigate = useNavigate();
+  const [students, setStudents] = useState<Student[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Al día" | "Pendiente" | "Vencido">("Todas");
+  const [loading, setLoading] = useState(true);
 
-  const filtered = students.filter((s) => {
-    const matchSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.matricula.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "Todas" || s.paymentStatus === filter;
-    return matchSearch && matchFilter;
-  });
+  useEffect(() => {
+    async function loadStudents() {
+      setLoading(true);
+      try {
+        const data = await getAdminStudents();
+        setStudents(data);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "No se pudo cargar alumnas.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadStudents();
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      students.filter((s) => {
+        const matchSearch =
+          s.name.toLowerCase().includes(search.toLowerCase()) ||
+          s.matricula.toLowerCase().includes(search.toLowerCase());
+        const matchFilter = filter === "Todas" || s.paymentStatus === filter;
+        return matchSearch && matchFilter;
+      }),
+    [students, search, filter],
+  );
 
   return (
     <div style={{ padding: "40px 48px", maxWidth: 1200 }}>
@@ -262,7 +284,7 @@ export function Alumnas() {
         </table>
         {filtered.length === 0 && (
           <div style={{ padding: "60px 20px", textAlign: "center", color: "#C0BAB4", fontSize: "0.9rem" }}>
-            No se encontraron alumnas con ese filtro.
+            {loading ? "Cargando alumnas..." : "No se encontraron alumnas con ese filtro."}
           </div>
         )}
       </div>

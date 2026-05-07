@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   CalendarCheck,
+  Calendar,
   CreditCard,
   KeyRound,
   LogOut,
@@ -15,6 +16,7 @@ const navItems = [
   { to: "/dashboard/estudio", icon: Home, label: "El Estudio" },
   { to: "/dashboard/alumnas", icon: Users, label: "Alumnas" },
   { to: "/dashboard/asistencia", icon: CalendarCheck, label: "Asistencia" },
+  { to: "/dashboard/citas", icon: Calendar, label: "Citas" },
   { to: "/dashboard/pagos", icon: CreditCard, label: "Pagos" },
   { to: "/dashboard/registro", icon: KeyRound, label: "Registro Rápido" },
 ];

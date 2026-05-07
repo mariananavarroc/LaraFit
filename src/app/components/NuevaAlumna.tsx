@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ChevronLeft, Save, UserPlus } from "lucide-react";
+import { createAdminStudent } from "../../../backend/adminData";
 
 function Field({
   label,
@@ -56,6 +57,7 @@ function Field({
 
 export function NuevaAlumna() {
   const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -67,13 +69,42 @@ export function NuevaAlumna() {
     emergencyPhone: "",
     emergencyRel: "",
     notes: "",
+    /** Solo números, hasta 3 dígitos (ej. 42 → LFS-042). Vacío = asignación automática. */
+    matriculaDigits: "",
   });
 
   const set = (k: string) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handleSubmit = () => {
-    alert("¡Alumna registrada exitosamente! (demo)");
-    navigate("/dashboard/alumnas");
+  const handleSubmit = async () => {
+    if (!form.name || !form.email) {
+      alert("Nombre y email son obligatorios.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const digits = form.matriculaDigits.replace(/\D/g, "").slice(0, 3);
+      const result = await createAdminStudent({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        birthDate: form.birthDate,
+        plan: form.plan,
+        schedule: form.schedule,
+        emergencyContact: [form.emergencyName, form.emergencyPhone, form.emergencyRel]
+          .filter(Boolean)
+          .join(" · "),
+        matricula: digits.length > 0 ? digits : undefined,
+      });
+      alert(
+        `Alumna registrada en base de datos.\nID: ${result.id}\nPassword temporal: ${result.temporaryPassword}`,
+      );
+      navigate("/dashboard/alumnas");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo registrar la alumna.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -155,6 +186,48 @@ export function NuevaAlumna() {
             <Field label="Email" placeholder="correo@ejemplo.com" type="email" value={form.email} onChange={set("email")} />
             <Field label="Celular" placeholder="+56 9 1234 5678" value={form.phone} onChange={set("phone")} />
             <Field label="Fecha de nacimiento" placeholder="" type="date" value={form.birthDate} onChange={set("birthDate")} />
+          </div>
+          <div style={{ marginTop: 20 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: "0.72rem",
+                color: "#9D9D9D",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                marginBottom: 6,
+              }}
+            >
+              Matrícula (3 números, opcional)
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: "0.85rem", color: "#7B5EA7", fontWeight: 500 }}>LFS-</span>
+              <input
+                value={form.matriculaDigits}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    matriculaDigits: e.target.value.replace(/\D/g, "").slice(0, 3),
+                  }))
+                }
+                placeholder="001"
+                maxLength={3}
+                style={{
+                  width: 96,
+                  padding: "11px 14px",
+                  borderRadius: 10,
+                  border: "1.5px solid #E8E4DF",
+                  background: "#FDFCFB",
+                  fontSize: "0.85rem",
+                  color: "#1A1A1A",
+                  fontFamily: "'DM Sans', sans-serif",
+                  outline: "none",
+                }}
+              />
+            </div>
+            <p style={{ fontSize: "0.72rem", color: "#C0BAB4", marginTop: 8 }}>
+              Si lo dejas vacío, se asigna el siguiente número disponible (LFS-001 … LFS-999).
+            </p>
           </div>
         </div>
 
@@ -302,6 +375,7 @@ export function NuevaAlumna() {
           </button>
           <button
             onClick={handleSubmit}
+            disabled={saving}
             style={{
               padding: "11px 28px",
               borderRadius: 10,
@@ -314,10 +388,11 @@ export function NuevaAlumna() {
               alignItems: "center",
               gap: 8,
               fontFamily: "'DM Sans', sans-serif",
+              opacity: saving ? 0.7 : 1,
             }}
           >
             <Save size={14} />
-            Guardar Alumna
+            {saving ? "Guardando..." : "Guardar Alumna"}
           </button>
         </div>
       </div>

@@ -1,4 +1,6 @@
 import { MapPin, Phone, Mail, Instagram, Facebook, Clock, Star, Wifi, Car, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ClassScheduleRow, getClassSchedule } from "../../../backend/adminData";
 
 const schedule = [
   {
@@ -106,6 +108,24 @@ function ClassBadge({ name, type }: { name: string | null; type: string }) {
 }
 
 export function Estudio() {
+  const [dbSchedule, setDbSchedule] = useState<ClassScheduleRow[] | null>(null);
+
+  useEffect(() => {
+    async function loadSchedule() {
+      try {
+        const data = await getClassSchedule();
+        if (data.length > 0) {
+          setDbSchedule(data);
+        }
+      } catch {
+        setDbSchedule(null);
+      }
+    }
+    void loadSchedule();
+  }, []);
+
+  const scheduleToRender = dbSchedule ?? schedule;
+
   return (
     <div style={{ padding: "40px 48px", maxWidth: 1100, fontFamily: "'DM Sans', sans-serif" }}>
 
@@ -287,7 +307,7 @@ export function Estudio() {
               </tr>
             </thead>
             <tbody>
-              {schedule.map((row, ri) => (
+              {scheduleToRender.map((row, ri) => (
                 <tr
                   key={ri}
                   style={{ borderTop: ri === 2 ? "2px dashed #F0EDE8" : ri > 0 ? "1px solid #F8F6F4" : "none" }}

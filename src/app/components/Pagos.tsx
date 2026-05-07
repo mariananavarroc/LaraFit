@@ -1,5 +1,15 @@
-import { useState } from "react";
-import { students } from "../data/mockData";
+import { useEffect, useMemo, useState } from "react";
+import { Student } from "../data/mockData";
+import {
+  getAdminStudents,
+  getPaymentsByStudent,
+  registerPayment,
+  updateMembershipFee,
+  getPendingStudentPaymentRequests,
+  approvePendingStudentPayment,
+  rejectPendingStudentPayment,
+  type PendingPaymentRequest,
+} from "../../../backend/adminData";
 import {
   CreditCard,
   Bell,
@@ -11,21 +21,158 @@ import {
 } from "lucide-react";
 
 export function Pagos() {
+  const [students, setStudents] = useState<Student[]>([]);
   const [sentReminders, setSentReminders] = useState<string[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [newFee, setNewFee] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [pendingRequests, setPendingRequests] = useState<PendingPaymentRequest[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
-  const totalIngresos = students
-    .flatMap((s) => s.payments)
-    .filter((p) => p.status === "Pagado")
-    .reduce((acc, p) => acc + p.amount, 0);
+  const reloadAll = async () => {
+    const [baseStudents, paymentsByStudent, pending] = await Promise.all([
+      getAdminStudents(),
+      getPaymentsByStudent(),
+      getPendingStudentPaymentRequests(),
+    ]);
+    const enriched = baseStudents.map((student) => ({
+      ...student,
+      payments: paymentsByStudent[student.id] ?? [],
+    }));
+    setStudents(enriched);
+    setPendingRequests(pending);
+  };
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        await reloadAll();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "No se pudo cargar pagos");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadData();
+  }, []);
+
+  const totalIngresos = useMemo(
+    () =>
+      students
+        .flatMap((s) => s.payments)
+        .filter((p) => p.status === "Pagado")
+        .reduce((acc, p) => acc + p.amount, 0),
+    [students],
+  );
 
   const pendientesAlumnas = students.filter(
-    (s) => s.paymentStatus === "Pendiente" || s.paymentStatus === "Vencido"
+    (s) => s.paymentStatus === "Pendiente" || s.paymentStatus === "Vencido",
   );
 
   const alDiaAlumnas = students.filter((s) => s.paymentStatus === "Al día");
 
   const sendReminder = (id: string) => {
     setSentReminders((prev) => [...prev, id]);
+  };
+
+  const handleRegisterPayment = async () => {
+    if (!selectedStudentId) {
+      alert("Selecciona una alumna.");
+      return;
+    }
+    const selected = students.find((s) => s.id === selectedStudentId);
+    if (!selected) {
+      return;
+    }
+
+    try {
+      await registerPayment({
+        studentId: selectedStudentId,
+        amount: selected.monthlyFee,
+        method: "Transferencia",
+        paymentDate: new Date().toISOString().split("T")[0],
+      });
+      setStudents((prev) =>
+        prev.map((student) =>
+          student.id === selectedStudentId
+            ? {
+                ...student,
+                paymentStatus: "Al día",
+                lastPaymentDate: new Date().toISOString().split("T")[0],
+                nextPaymentDate: new Date(new Date().setMonth(new Date().getMonth() + 1))
+                  .toISOString()
+                  .split("T")[0],
+                payments: [
+                  {
+                    id: `${student.id}-${Date.now()}`,
+                    date: new Date().toISOString().split("T")[0],
+                    amount: student.monthlyFee,
+                    method: "Transferencia",
+                    status: "Pagado",
+                    month: new Date().toLocaleDateString("es-CL", { month: "long", year: "numeric" }),
+                  },
+                  ...student.payments,
+                ],
+              }
+            : student,
+        ),
+      );
+      alert("Pago registrado en Supabase.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo registrar el pago.");
+    }
+  };
+
+  const handleApprovePending = async (paymentId: string) => {
+    setApprovingId(paymentId);
+    try {
+      await approvePendingStudentPayment(paymentId);
+      await reloadAll();
+      alert("Pago aceptado. Membresía de la alumna actualizada.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo aceptar el pago.");
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectPending = async (paymentId: string) => {
+    if (!confirm("¿Rechazar esta solicitud? La alumna podrá enviar otra.")) {
+      return;
+    }
+    setRejectingId(paymentId);
+    try {
+      await rejectPendingStudentPayment(paymentId);
+      await reloadAll();
+      alert("Solicitud rechazada.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo rechazar el pago.");
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
+  const handleUpdateFee = async () => {
+    const value = Number(newFee);
+    if (!selectedStudentId || Number.isNaN(value) || value <= 0) {
+      alert("Selecciona alumna y captura un monto valido.");
+      return;
+    }
+    try {
+      await updateMembershipFee(selectedStudentId, value);
+      setStudents((prev) =>
+        prev.map((student) =>
+          student.id === selectedStudentId ? { ...student, monthlyFee: value } : student,
+        ),
+      );
+      setNewFee("");
+      alert("Membresia actualizada.");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "No se pudo actualizar la membresia.");
+    }
   };
 
   return (
@@ -172,6 +319,111 @@ export function Pagos() {
           </p>
         </div>
       </div>
+
+      {/* Solicitudes enviadas por alumnas (pendientes de aprobación) */}
+      {pendingRequests.length > 0 && (
+        <div
+          style={{
+            background: "#FFFFFF",
+            borderRadius: 16,
+            padding: "28px 32px",
+            boxShadow: "0 1px 12px rgba(0,0,0,0.05)",
+            marginBottom: 24,
+            border: "1.5px solid rgba(200,184,216,0.45)",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: "1.2rem",
+              color: "#1A1A1A",
+              marginBottom: 8,
+              fontWeight: 500,
+            }}
+          >
+            Solicitudes de pago de alumnas
+          </h3>
+          <p style={{ fontSize: "0.8rem", color: "#9D9D9D", marginBottom: 20 }}>
+            La alumna ya registró la intención de pago. Al aceptar, se confirma en el sistema y se extiende su membresía un
+            mes desde la fecha del pago.
+          </p>
+          <div className="flex flex-col gap-3">
+            {pendingRequests.map((req) => {
+              const alumna = students.find((s) => s.id === req.studentId);
+              const name = alumna?.name ?? "Alumna";
+              const busyApprove = approvingId === req.id;
+              const busyReject = rejectingId === req.id;
+              const busy = busyApprove || busyReject;
+              return (
+                <div
+                  key={req.id}
+                  className="flex flex-wrap items-center justify-between gap-3"
+                  style={{
+                    padding: "14px 18px",
+                    borderRadius: 12,
+                    background: "#FDFCFB",
+                    border: "1px solid #F0EDE8",
+                  }}
+                >
+                  <div>
+                    <p style={{ fontSize: "0.88rem", color: "#1A1A1A", fontWeight: 500 }}>{name}</p>
+                    <p style={{ fontSize: "0.72rem", color: "#9D9D9D" }}>
+                      ${req.amount.toLocaleString("es-CL")} · {req.method} ·{" "}
+                      {req.requestDate
+                        ? new Date(req.requestDate).toLocaleDateString("es-CL", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApprovePending(req.id)}
+                      disabled={busy || loading}
+                      style={{
+                        padding: "8px 18px",
+                        borderRadius: 8,
+                        border: "none",
+                        background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+                        color: "#1A1A1A",
+                        fontSize: "0.78rem",
+                        cursor: busy || loading ? "default" : "pointer",
+                        fontFamily: "'DM Sans', sans-serif",
+                        opacity: busy || loading ? 0.7 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {busyApprove ? "Aceptando..." : "Aceptar pago"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRejectPending(req.id)}
+                      disabled={busy || loading}
+                      style={{
+                        padding: "8px 18px",
+                        borderRadius: 8,
+                        border: "1.5px solid #E8DFF0",
+                        background: "transparent",
+                        color: "#B05070",
+                        fontSize: "0.78rem",
+                        cursor: busy || loading ? "default" : "pointer",
+                        fontFamily: "'DM Sans', sans-serif",
+                        opacity: busy || loading ? 0.7 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {busyReject ? "..." : "Rechazar"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6" style={{ gridTemplateColumns: "1.2fr 1fr" }}>
         {/* Payment Status Table */}
@@ -453,6 +705,8 @@ export function Pagos() {
             </div>
             <div className="flex gap-2">
               <select
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(e.target.value)}
                 style={{
                   flex: 1,
                   padding: "8px 12px",
@@ -473,7 +727,8 @@ export function Pagos() {
                 ))}
               </select>
               <button
-                onClick={() => alert("Pago registrado (demo)")}
+                onClick={handleRegisterPayment}
+                disabled={loading}
                 style={{
                   padding: "8px 16px",
                   borderRadius: 8,
@@ -484,9 +739,46 @@ export function Pagos() {
                   cursor: "pointer",
                   fontFamily: "'DM Sans', sans-serif",
                   whiteSpace: "nowrap",
+                  opacity: loading ? 0.7 : 1,
                 }}
               >
                 + Registrar
+              </button>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <input
+                type="number"
+                min={1}
+                value={newFee}
+                onChange={(e) => setNewFee(e.target.value)}
+                placeholder="Nuevo monto membresia"
+                style={{
+                  flex: 1,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1.5px solid #E8DFF0",
+                  background: "#FFFFFF",
+                  fontSize: "0.78rem",
+                  color: "#1A1A1A",
+                  fontFamily: "'DM Sans', sans-serif",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={handleUpdateFee}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: "1.5px solid #C8B8D8",
+                  background: "rgba(200,184,216,0.15)",
+                  color: "#7B5EA7",
+                  fontSize: "0.78rem",
+                  cursor: "pointer",
+                  fontFamily: "'DM Sans', sans-serif",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Actualizar cuota
               </button>
             </div>
           </div>

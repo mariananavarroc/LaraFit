@@ -1,14 +1,17 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { students } from "../data/mockData";
 import {
   Users,
   TrendingUp,
   AlertCircle,
-  CalendarCheck,
   ChevronRight,
   Clock,
   Sparkles,
+  Bell,
+  Calendar,
 } from "lucide-react";
+import { listPendingCitasForAdmin, type CitaAdminRow } from "../../../backend/adminData";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 
 const attendanceData = [
@@ -94,6 +97,14 @@ function StatCard({
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const [pendingCitas, setPendingCitas] = useState<CitaAdminRow[]>([]);
+
+  useEffect(() => {
+    void listPendingCitasForAdmin()
+      .then(setPendingCitas)
+      .catch(() => setPendingCitas([]));
+  }, []);
+
   const total = students.length;
   const alDia = students.filter((s) => s.paymentStatus === "Al día").length;
   const pendientes = students.filter((s) => s.paymentStatus !== "Al día").length;
@@ -130,31 +141,158 @@ export function Dashboard() {
             Aquí tienes el resumen de tu estudio hoy.
           </p>
         </div>
-        <button
-          onClick={() => navigate("/dashboard/alumnas/nueva")}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/alumnas/nueva")}
+            style={{
+              background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+              border: "none",
+              borderRadius: 12,
+              padding: "11px 22px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "0.85rem",
+              color: "#1A1A1A",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            <Sparkles size={15} />
+            Nueva Alumna
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/citas")}
+            style={{
+              background: "#FFFFFF",
+              border: "1.5px solid #E8DFF0",
+              borderRadius: 12,
+              padding: "11px 22px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: "0.85rem",
+              color: "#7B5EA7",
+              fontFamily: "'DM Sans', sans-serif",
+              boxShadow: "0 1px 8px rgba(0,0,0,0.04)",
+            }}
+          >
+            <Calendar size={15} />
+            Citas
+            {pendingCitas.length > 0 ? (
+              <span
+                style={{
+                  marginLeft: 4,
+                  background: "rgba(176,80,112,0.15)",
+                  color: "#B05070",
+                  fontSize: "0.72rem",
+                  padding: "2px 8px",
+                  borderRadius: 20,
+                  fontWeight: 600,
+                }}
+              >
+                {pendingCitas.length}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      </div>
+
+      {pendingCitas.length > 0 && (
+        <div
           style={{
-            background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
-            border: "none",
-            borderRadius: 12,
-            padding: "11px 22px",
-            cursor: "pointer",
+            background: "linear-gradient(135deg, rgba(200,184,216,0.18), rgba(242,212,215,0.2))",
+            border: "1.5px solid rgba(123, 94, 167, 0.28)",
+            borderRadius: 16,
+            padding: "20px 24px",
+            marginBottom: 28,
             display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: "0.85rem",
-            color: "#1A1A1A",
-            fontFamily: "'DM Sans', sans-serif",
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+            gap: 16,
+            justifyContent: "space-between",
           }}
         >
-          <Sparkles size={15} />
-          Nueva Alumna
-        </button>
-      </div>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: "rgba(255,255,255,0.7)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <Bell size={20} color="#7B5EA7" />
+            </div>
+            <div>
+              <p
+                style={{
+                  fontSize: "0.72rem",
+                  color: "#7B5EA7",
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  marginBottom: 8,
+                  fontWeight: 600,
+                }}
+              >
+                Pendientes · citas por confirmar
+              </p>
+              <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                {pendingCitas.slice(0, 5).map((c) => {
+                  const dt = new Date(c.fecha_hora);
+                  return (
+                    <li key={c.id} style={{ fontSize: "0.84rem", color: "#1A1A1A", lineHeight: 1.45 }}>
+                      <strong>{c.studentName}</strong>
+                      {" · "}
+                      {dt.toLocaleDateString("es-CL", {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                      })}
+                      {" · "}
+                      {dt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}
+                    </li>
+                  );
+                })}
+              </ul>
+              {pendingCitas.length > 5 ? (
+                <p style={{ fontSize: "0.72rem", color: "#9D9D9D", marginTop: 8 }}>
+                  +{pendingCitas.length - 5} más en la pantalla Citas
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/citas")}
+            style={{
+              padding: "10px 18px",
+              borderRadius: 10,
+              border: "none",
+              background: "#1A1A1A",
+              color: "#FFFFFF",
+              fontSize: "0.8rem",
+              cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif",
+              flexShrink: 0,
+            }}
+          >
+            Revisar y aceptar
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div
         className="grid gap-5 mb-8"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+        style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
       >
         <StatCard
           icon={Users}
@@ -176,13 +314,6 @@ export function Dashboard() {
           value={pendientes}
           sub={`${vencidos} vencidos`}
           accent="rgba(242,212,215,0.5)"
-        />
-        <StatCard
-          icon={CalendarCheck}
-          label="Asistencia Hoy"
-          value="5 / 6"
-          sub="Clases activas"
-          accent="rgba(200,184,216,0.2)"
         />
       </div>
 
