@@ -259,8 +259,79 @@ export function MiCuenta() {
 
   if (!user || !session) {
     return (
-      <div>No tienes cuenta</div>
-    )
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#F8F6F4",
+          fontFamily: "'DM Sans', sans-serif",
+          display: "grid",
+          placeItems: "center",
+          padding: "40px 24px",
+        }}
+      >
+        <div
+          style={{
+            width: "min(520px, 100%)",
+            background: "rgba(253,252,251,0.95)",
+            border: "1px solid #F0EDE8",
+            borderRadius: 20,
+            padding: "28px 26px",
+            boxShadow: "0 1px 10px rgba(0,0,0,0.05)",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 14,
+              background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Flower2 size={18} color="#1A1A1A" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: "0.7rem",
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "#9D9D9D",
+              }}
+            >
+              Mi cuenta
+            </p>
+            <p style={{ margin: "8px 0 0", fontSize: "0.95rem", color: "#1A1A1A" }}>Cargando tu información…</p>
+            <div style={{ marginTop: 14, height: 3, borderRadius: 999, background: "#F0EDE8", overflow: "hidden" }}>
+              <div
+                style={{
+                  height: "100%",
+                  width: "40%",
+                  borderRadius: 999,
+                  background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+                  animation: "mi-cuenta-loading 1.1s ease-in-out infinite",
+                }}
+              />
+            </div>
+            <style>
+              {`
+                @keyframes mi-cuenta-loading {
+                  0% { transform: translateX(-60%); opacity: 0.65; }
+                  50% { transform: translateX(40%); opacity: 1; }
+                  100% { transform: translateX(140%); opacity: 0.65; }
+                }
+              `}
+            </style>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
