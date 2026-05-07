@@ -71,13 +71,19 @@ export async function login(email: string, password: string) {
 
 
 export async function getUserData(id: string) {
-  const { data } = await supabase.from("usuarios").select("*").eq("id_alumna", id).single()
+  const { data, error } = await supabase.from("usuarios").select("*").eq("id_alumna", id).single()
+
+  if (error) {
+    console.error("Error obteniendo datos del usuario:", error);
+    return null;
+  }
 
   if (!data) {
+    console.warn("No se encontraron datos para el usuario:", id);
     return null;
-  } else {
-    return data;
   }
+
+  return data;
 }
 
 export async function logout() {
