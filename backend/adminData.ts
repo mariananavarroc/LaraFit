@@ -1633,43 +1633,51 @@ export async function listAttendanceRowsByDateRange(params: {
   fromDate: string;
   toDate: string;
 }): Promise<AttendanceExportRow[]> {
-  const fromIso = `${params.fromDate}T00:00:00`;
-  const toIso = `${params.toDate}T23:59:59`;
+  const { fromDate, toDate } = params;
 
   let rows: DbAttendance[] = [];
 
   const fetchRowsFromTable = async (table: string): Promise<DbAttendance[]> => {
-    // Esquema principal: columna `fecha`
-    const byFecha = await supabase
-      .from(table)
-      .select("id_alumna,clase,clase_nombre,estado,fecha,fecha_asistencia,id_horario")
-      .gte("fecha", fromIso)
-      .lte("fecha", toIso)
-      .order("fecha", { ascending: true });
-    if (!byFecha.error) {
-      return (byFecha.data ?? []) as DbAttendance[];
-    }
-
-    // Esquema alterno: columna `fecha_asistencia`
-    if (isMissingColumnError(byFecha.error.message)) {
-      const byFechaAsistencia = await supabase
+    try {
+      // Intenta con todas las columnas posibles
+      let { data, error } = await supabase
         .from(table)
-        .select("id_alumna,clase,clase_nombre,estado,fecha,fecha_asistencia,id_horario")
-        .gte("fecha_asistencia", fromIso)
-        .lte("fecha_asistencia", toIso)
-        .order("fecha_asistencia", { ascending: true });
-      if (!byFechaAsistencia.error) {
-        return (byFechaAsistencia.data ?? []) as DbAttendance[];
-      }
-    }
+        .select("*");
 
-    return [];
+      if (error) {
+        console.error(`Error fetching from ${table}:`, error.message);
+        return [];
+      }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Filtrar por rango de fechas en memoria
+      return (data as any[]).filter((row) => {
+        const dateStr = (row.fecha_asistencia ?? row.fecha ?? row.created_at ?? "").split("T")[0];
+        return dateStr >= fromDate && dateStr <= toDate;
+      }).map(row => ({
+        id_alumna: row.id_alumna,
+        id_asistencia: row.id_asistencia,
+        id_horario: row.id_horario,
+        clase: row.clase,
+        clase_nombre: row.clase_nombre,
+        fecha: row.fecha,
+        fecha_asistencia: row.fecha_asistencia,
+        estado: row.estado,
+      }));
+    } catch (err) {
+      console.error(`Exception fetching from ${table}:`, err);
+      return [];
+    }
   };
 
   for (const table of attendanceTables) {
     const current = await fetchRowsFromTable(table);
     if (current.length > 0) {
       rows = rows.concat(current);
+      break; // Si encontramos datos en una tabla, no buscamos en la siguiente
     }
   }
 
@@ -1732,21 +1740,22 @@ export async function listAttendanceRowsByDateRange(params: {
   return rows.map((row) => {
     const rawAsistencia = String(row.fecha_asistencia ?? row.fecha ?? "");
     const dt = rawAsistencia && rawAsistencia.includes("T") ? new Date(rawAsistencia) : null;
-    const derivedHour =
-      dt && !Number.isNaN(dt.getTime())
-        ? dt.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
-        : row.id_horario
-        ? horarioStartById.get(row.id_horario)
-        : undefined;
     const day =
       dt ? dt.toLocaleDateString("es-CL") : rawAsistencia ? String(rawAsistencia).slice(0, 10) : "";
+    
+    // Obtener horario, si no existe devolver el id como fallback
+    let horarioLabel = row.id_horario ? horarioLabelById.get(String(row.id_horario)) : undefined;
+    if (!horarioLabel && row.id_horario) {
+      horarioLabel = String(row.id_horario); // Usar el ID como fallback si no encuentra el label
+    }
+    
     return {
       studentName: nameById.get(row.id_alumna) ?? "Alumna",
       className: (row.clase ?? row.clase_nombre ?? "Clase").trim(),
       status: row.estado,
       day,
-      horario: row.id_horario ? horarioLabelById.get(String(row.id_horario)) : undefined,
-      hour: derivedHour ?? "--",
+      horario: horarioLabel || "Sin horario",
+      hour: "",
     };
   });
 }

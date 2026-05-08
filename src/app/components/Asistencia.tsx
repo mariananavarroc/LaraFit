@@ -8,6 +8,7 @@ import {
   getStudentsByIds,
 } from "../../../backend/adminData";
 import { CheckCircle2, XCircle, CalendarDays, ChevronDown } from "lucide-react";
+import * as XLSX from "xlsx";
 
 const today = new Date().toLocaleDateString("es-CL", {
   weekday: "long",
@@ -41,6 +42,7 @@ export function Asistencia() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [horarioMap, setHorarioMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadData() {
@@ -54,10 +56,13 @@ export function Asistencia() {
         ]);
         setPresentByStudent(presentMap);
 
+        // Guardar el mapa de horarios para usar en la exportación
+        const horarioMapTemp = new Map(horarios.map((h) => [h.id, h.label]));
+        setHorarioMap(Object.fromEntries(horarioMapTemp));
+
         const ids = Array.from(new Set(savedAttendance.map((r) => r.id_alumna).filter(Boolean)));
         const students = await getStudentsByIds(ids);
         const studentById = new Map(students.map((s) => [s.id, s]));
-        const horarioById = new Map(horarios.map((h) => [h.id, h.label]));
         const rows = savedAttendance.map((saved) => {
           const student = studentById.get(saved.id_alumna);
           return {
@@ -65,7 +70,7 @@ export function Asistencia() {
             studentName: student?.name ?? "Alumna",
             initials: student?.initials ?? "AL",
             class: (saved.clase ?? saved.clase_nombre ?? "Clase").trim(),
-            horario: saved.id_horario ? horarioById.get(String(saved.id_horario)) ?? "—" : "—",
+            horario: saved.id_horario ? horarioMapTemp.get(String(saved.id_horario)) ?? "—" : "—",
             status: saved.estado === "Presente" ? "Presente" : "Ausente",
           } satisfies AttRecord;
         });
@@ -135,56 +140,85 @@ export function Asistencia() {
       await handleRegisterAttendance();
     }
     const [y, m] = exportMonth.split("-").map(Number);
-    if (!y || !m) return;
-    const first = `${y}-${String(m).padStart(2, "0")}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const last = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-    const rows = await listAttendanceRowsByDateRange({ fromDate: first, toDate: last });
-    const tableRows = rows
-      .map(
-        (r) => `
-          <tr>
-            <td>${r.studentName}</td>
-            <td>${r.className}</td>
-            <td>${r.horario ?? ""}</td>
-            <td>${r.status}</td>
-            <td>${r.day}</td>
-            <td>${r.hour}</td>
-          </tr>
-        `,
-      )
-      .join("");
-    const html = `<!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8" />
-          <title>Asistencia</title>
-        </head>
-        <body>
-          <table border="1" style="border-collapse:collapse;font-family:Arial;width:100%;">
-            <thead>
-              <tr style="background:#F3F0EC;">
-                <th>Alumna</th>
-                <th>Clase</th>
-                <th>Horario</th>
-                <th>Estado</th>
-                <th>Día</th>
-                <th>Hora</th>
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-        </body>
-      </html>`;
-    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `asistencia-${exportMonth}.xls`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    if (!y || !m) {
+      alert("Selecciona un mes válido.");
+      return;
+    }
+
+    try {
+      const first = `${y}-${String(m).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, m, 0).getDate();
+      const last = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+      console.log(`🔍 Obteniendo asistencia desde ${first} hasta ${last}`);
+
+      // Obtener datos de la base de datos
+      let rows = await listAttendanceRowsByDateRange({ fromDate: first, toDate: last });
+
+      console.log(`📊 Datos obtenidos (${rows.length} registros):`, rows);
+
+      if (rows.length === 0) {
+        alert(`❌ No hay datos de asistencia para el período ${first} a ${last}.\n\nVerifica que:\n- Hay registros en la base de datos\n- Las fechas están correctas\n- Los registros pertenecen a este mes\n\nAbre la consola (F12) para ver más detalles.`);
+        return;
+      }
+
+      // Ordenar por día en orden ascendente
+      rows = rows.sort((a, b) => {
+        const dateA = new Date(a.day.split("/").reverse().join("-")).getTime();
+        const dateB = new Date(b.day.split("/").reverse().join("-")).getTime();
+        return dateA - dateB;
+      });
+
+      // Transformar datos para Excel usando el horario del frontend
+      const excelData = rows.map((r) => ({
+        Alumna: r.studentName,
+        Clase: r.className,
+        Horario: horarioMap[r.horario || ""] || r.horario || "Sin horario",
+        Estado: r.status,
+        Día: r.day,
+      }));
+
+      console.log(`✅ Datos formateados para Excel:`, excelData);
+
+      // Crear libro de Excel
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+      // Configurar ancho de columnas
+      const columnWidths = [
+        { wch: 20 }, // Alumna
+        { wch: 20 }, // Clase
+        { wch: 20 }, // Horario
+        { wch: 12 }, // Estado
+        { wch: 12 }, // Día
+      ];
+      worksheet["!cols"] = columnWidths;
+
+      // Crear estilos para el encabezado
+      const headerStyle = {
+        fill: { fgColor: { rgb: "FFF3F0EC" } },
+        font: { bold: true, color: { rgb: "FF1A1A1A" } },
+        alignment: { horizontal: "center", vertical: "center" },
+      };
+
+      // Aplicar estilos al encabezado
+      const headerRange = XLSX.utils.decode_range(worksheet["!ref"] || "A1");
+      for (let C = headerRange.s.c; C <= headerRange.e.c; ++C) {
+        const address = XLSX.utils.encode_cell({ r: 0, c: C });
+        if (!worksheet[address]) continue;
+        worksheet[address].s = headerStyle;
+      }
+
+      // Crear libro de trabajo
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Asistencia");
+
+      // Descargar archivo
+      XLSX.writeFile(workbook, `asistencia-${exportMonth}.xlsx`);
+      alert(`La asistencia se descargó correctamente.`);
+    } catch (e) {
+      console.error("❌ Error al descargar:", e);
+      alert(e instanceof Error ? `Error: ${e.message}` : "Error al descargar el archivo. Revisa la consola (F12) para más detalles.");
+    }
   };
 
   return (
