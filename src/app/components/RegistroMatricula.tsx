@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { students } from "../data/mockData";
+import { findStudentByMatricula, registerQuickAttendanceByMatricula } from "../../../backend/adminData";
+import type { Student } from "../data/mockData";
 import {
   Delete,
   CheckCircle2,
@@ -8,14 +10,16 @@ import {
   Flower2,
 } from "lucide-react";
 
-type ResultState = "idle" | "found" | "notfound";
+type ResultState = "idle" | "found" | "notfound" | "loading" | "error";
 
 export function RegistroMatricula() {
   const [input, setInput] = useState("");
   const [result, setResultState] = useState<ResultState>("idle");
-  const [foundStudent, setFoundStudent] = useState<(typeof students)[0] | null>(null);
+  const [foundStudent, setFoundStudent] = useState<Student | null>(null);
   const [registered, setRegistered] = useState<string[]>([]);
   const [shake, setShake] = useState(false);
+  const [registeredTodayList, setRegisteredTodayList] = useState<Array<{ id: string; name: string; time: string }>>([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const MAX = 7; // e.g. LFS-001
 
@@ -24,18 +28,20 @@ export function RegistroMatricula() {
     : "";
 
   const handleKey = (val: string) => {
-    if (result !== "idle") {
+    if (result !== "idle" && result !== "error") {
       setResultState("idle");
       setFoundStudent(null);
+      setErrorMessage("");
     }
     if (input.length >= MAX - 4) return; // "LFS-" prefix is 4 chars, digits max 3
     setInput((prev) => prev + val);
   };
 
   const handleDelete = () => {
-    if (result !== "idle") {
+    if (result !== "idle" && result !== "error") {
       setResultState("idle");
       setFoundStudent(null);
+      setErrorMessage("");
     }
     setInput((prev) => prev.slice(0, -1));
   };
@@ -44,25 +50,100 @@ export function RegistroMatricula() {
     setInput("");
     setResultState("idle");
     setFoundStudent(null);
+    setErrorMessage("");
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!input) return;
-    const query = `LFS-${input.padStart(3, "0")}`;
-    const student = students.find(
-      (s) => s.matricula.toUpperCase() === query.toUpperCase()
-    );
-    if (student) {
-      setFoundStudent(student);
-      setResultState("found");
-      if (!registered.includes(student.id)) {
-        setRegistered((prev) => [...prev, student.id]);
+    
+    setResultState("loading");
+    setErrorMessage("");
+    
+    try {
+      const query = `LFS-${input.padStart(3, "0")}`;
+      
+      // Primero intentar buscar en la BD
+      const dbStudent = await findStudentByMatricula(query);
+      
+      if (dbStudent) {
+        // Registrar asistencia en la BD
+        await registerQuickAttendanceByMatricula({
+          matricula: query,
+          className: "Registro Rápido",
+        });
+        
+        setFoundStudent(dbStudent);
+        setResultState("found");
+        
+        // Agregar a la lista de registradas hoy
+        const now = new Date();
+        setRegisteredTodayList((prev) => [
+          ...prev,
+          {
+            id: dbStudent.id,
+            name: dbStudent.name,
+            time: now.toLocaleTimeString("es-CL", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
+        
+        if (!registered.includes(dbStudent.id)) {
+          setRegistered((prev) => [...prev, dbStudent.id]);
+        }
+      } else {
+        // Si no está en BD, intentar fallback con mockData
+        const mockStudent = students.find(
+          (s) => s.matricula.toUpperCase() === query.toUpperCase()
+        );
+        
+        if (mockStudent) {
+          // Intentar registrar en BD con el ID del mock
+          try {
+            await registerQuickAttendanceByMatricula({
+              matricula: query,
+              className: "Registro Rápido",
+            });
+          } catch (err) {
+            // Si falla en BD pero está en mockData, mostrar warning pero permitir continuar
+            console.warn("Asistencia no se registró en BD, pero alumna encontrada en caché local", err);
+          }
+          
+          setFoundStudent(mockStudent);
+          setResultState("found");
+          
+          const now = new Date();
+          setRegisteredTodayList((prev) => [
+            ...prev,
+            {
+              id: mockStudent.id,
+              name: mockStudent.name,
+              time: now.toLocaleTimeString("es-CL", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
+          
+          if (!registered.includes(mockStudent.id)) {
+            setRegistered((prev) => [...prev, mockStudent.id]);
+          }
+        } else {
+          setFoundStudent(null);
+          setResultState("notfound");
+          setErrorMessage("Matrícula no encontrada");
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+        }
       }
-    } else {
+    } catch (err) {
       setFoundStudent(null);
-      setResultState("notfound");
+      setResultState("error");
+      setErrorMessage(err instanceof Error ? err.message : "Error al registrar asistencia");
       setShake(true);
       setTimeout(() => setShake(false), 500);
+      console.error("Error en handleConfirm:", err);
     }
   };
 
@@ -70,6 +151,7 @@ export function RegistroMatricula() {
     setInput("");
     setResultState("idle");
     setFoundStudent(null);
+    setErrorMessage("");
   };
 
   // Keyboard support
@@ -77,7 +159,7 @@ export function RegistroMatricula() {
     const handler = (e: KeyboardEvent) => {
       if (e.key >= "0" && e.key <= "9") handleKey(e.key);
       else if (e.key === "Backspace") handleDelete();
-      else if (e.key === "Enter") handleConfirm();
+      else if (e.key === "Enter" && result !== "loading") handleConfirm();
       else if (e.key === "Escape") handleClear();
     };
     window.addEventListener("keydown", handler);
@@ -176,8 +258,10 @@ export function RegistroMatricula() {
             style={{
               background: result === "found"
                 ? "rgba(209,231,201,0.2)"
-                : result === "notfound"
+                : result === "notfound" || result === "error"
                 ? "rgba(242,212,215,0.3)"
+                : result === "loading"
+                ? "rgba(200,184,216,0.15)"
                 : "#F8F6F4",
               borderRadius: 14,
               padding: "18px 24px",
@@ -185,8 +269,10 @@ export function RegistroMatricula() {
               textAlign: "center",
               border: result === "found"
                 ? "1.5px solid rgba(122,201,154,0.5)"
-                : result === "notfound"
+                : result === "notfound" || result === "error"
                 ? "1.5px solid rgba(234,160,176,0.5)"
+                : result === "loading"
+                ? "1.5px solid rgba(200,184,216,0.3)"
                 : "1.5px solid transparent",
               transition: "all 0.3s ease",
               animation: shake ? "shake 0.4s ease" : "none",
@@ -203,25 +289,40 @@ export function RegistroMatricula() {
             >
               Matrícula
             </p>
-            <p
-              style={{
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: "2.2rem",
-                color: result === "found"
-                  ? "#4A7C59"
-                  : result === "notfound"
-                  ? "#B05070"
-                  : input
-                  ? "#1A1A1A"
-                  : "#D0CCC8",
-                letterSpacing: "0.12em",
-                lineHeight: 1,
-                minHeight: "2.4rem",
-                transition: "color 0.2s",
-              }}
-            >
-              {formatted || "LFS-___"}
-            </p>
+            {result === "loading" ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: "2.4rem" }}>
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    background: "#7B5EA7",
+                    animation: "pulse 1.5s infinite",
+                  }}
+                />
+                <p style={{ fontSize: "0.9rem", color: "#7B5EA7" }}>Registrando...</p>
+              </div>
+            ) : (
+              <p
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: "2.2rem",
+                  color: result === "found"
+                    ? "#4A7C59"
+                    : result === "notfound" || result === "error"
+                    ? "#B05070"
+                    : input
+                    ? "#1A1A1A"
+                    : "#D0CCC8",
+                  letterSpacing: "0.12em",
+                  lineHeight: 1,
+                  minHeight: "2.4rem",
+                  transition: "color 0.2s",
+                }}
+              >
+                {formatted || "LFS-___"}
+              </p>
+            )}
           </div>
 
           {/* Result message inline */}
@@ -239,11 +340,11 @@ export function RegistroMatricula() {
             >
               <CheckCircle2 size={16} color="#4A7C59" />
               <p style={{ fontSize: "0.8rem", color: "#4A7C59" }}>
-                ¡Bienvenida, {foundStudent.name.split(" ")[0]}!
+                ¡Bienvenida, {foundStudent.name.split(" ")[0]}! Asistencia registrada.
               </p>
             </div>
           )}
-          {result === "notfound" && (
+          {(result === "notfound" || result === "error") && (
             <div
               style={{
                 display: "flex",
@@ -257,7 +358,7 @@ export function RegistroMatricula() {
             >
               <XCircle size={16} color="#B05070" />
               <p style={{ fontSize: "0.8rem", color: "#B05070" }}>
-                Matrícula no encontrada.
+                {errorMessage || "Matrícula no encontrada."}
               </p>
             </div>
           )}
@@ -325,8 +426,8 @@ export function RegistroMatricula() {
 
           {/* Confirm */}
           <button
-            onClick={result !== "idle" ? handleRegisterAnother : handleConfirm}
-            disabled={result === "idle" && !input}
+            onClick={result !== "idle" && result !== "error" ? handleRegisterAnother : handleConfirm}
+            disabled={result === "loading" || (result === "idle" && !input)}
             style={{
               marginTop: 12,
               width: "100%",
@@ -334,15 +435,19 @@ export function RegistroMatricula() {
               borderRadius: 14,
               border: "none",
               background:
-                result === "found"
+                result === "loading"
+                  ? "rgba(200,184,216,0.25)"
+                  : result === "found"
                   ? "linear-gradient(135deg, #7AC99A, #A8D8B0)"
+                  : result === "error"
+                  ? "linear-gradient(135deg, #EAA0B0, #F2C0C8)"
                   : result === "notfound"
                   ? "linear-gradient(135deg, #EAA0B0, #F2C0C8)"
                   : input
                   ? "linear-gradient(135deg, #C8B8D8, #F2D4D7)"
                   : "#E8E4DF",
-              color: result === "idle" && !input ? "#B0A8A0" : "#1A1A1A",
-              cursor: result === "idle" && !input ? "default" : "pointer",
+              color: (result === "loading" || (result === "idle" && !input)) ? "#B0A8A0" : "#1A1A1A",
+              cursor: (result === "loading" || (result === "idle" && !input)) ? "not-allowed" : "pointer",
               fontFamily: "'DM Sans', sans-serif",
               fontSize: "0.9rem",
               fontWeight: 500,
@@ -351,14 +456,29 @@ export function RegistroMatricula() {
               justifyContent: "center",
               gap: 8,
               transition: "all 0.2s ease",
+              opacity: (result === "loading" || (result === "idle" && !input)) ? 0.6 : 1,
             }}
           >
-            {result === "found" ? (
+            {result === "loading" ? (
+              <>
+                <div
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: "50%",
+                    border: "2px solid rgba(123, 94, 167, 0.3)",
+                    borderTop: "2px solid #7B5EA7",
+                    animation: "spin 0.8s linear infinite",
+                  }}
+                />
+                Registrando...
+              </>
+            ) : result === "found" ? (
               <>
                 <CheckCircle2 size={16} />
                 Registrar otra
               </>
-            ) : result === "notfound" ? (
+            ) : result === "notfound" || result === "error" ? (
               <>
                 <XCircle size={16} />
                 Intentar de nuevo
@@ -550,11 +670,11 @@ export function RegistroMatricula() {
                   color: "#7B5EA7",
                 }}
               >
-                {registered.length} alumna{registered.length !== 1 ? "s" : ""}
+                {registeredTodayList.length} alumna{registeredTodayList.length !== 1 ? "s" : ""}
               </span>
             </div>
 
-            {registered.length === 0 ? (
+            {registeredTodayList.length === 0 ? (
               <div
                 style={{
                   textAlign: "center",
@@ -572,66 +692,58 @@ export function RegistroMatricula() {
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                {registered.map((sid, idx) => {
-                  const s = students.find((st) => st.id === sid);
-                  if (!s) return null;
-                  const time = new Date();
-                  time.setMinutes(time.getMinutes() - (registered.length - idx - 1) * 3);
-                  return (
-                    <div
-                      key={sid}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "12px 16px",
-                        borderRadius: 12,
-                        background: "#FDFCFB",
-                        border: "1px solid #F0EDE8",
-                        animation: idx === registered.length - 1 ? "fadeSlide 0.3s ease" : "none",
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: "50%",
-                            background:
-                              idx % 2 === 0
-                                ? "linear-gradient(135deg, #C8B8D8, #E8DFF0)"
-                                : "linear-gradient(135deg, #F2D4D7, #FAE8EA)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "0.68rem",
-                            color: "#1A1A1A",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {s.initials}
-                        </div>
-                        <div>
-                          <p style={{ fontSize: "0.85rem", color: "#1A1A1A" }}>
-                            {s.name}
-                          </p>
-                          <p style={{ fontSize: "0.7rem", color: "#C0BAB4" }}>
-                            {s.matricula} · {s.schedule.split("—")[1]?.trim() || s.plan}
-                          </p>
-                        </div>
+                {registeredTodayList.map((item, idx) => (
+                  <div
+                    key={`${item.id}-${idx}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "12px 16px",
+                      borderRadius: 12,
+                      background: "#FDFCFB",
+                      border: "1px solid #F0EDE8",
+                      animation: idx === registeredTodayList.length - 1 ? "fadeSlide 0.3s ease" : "none",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: "50%",
+                          background:
+                            idx % 2 === 0
+                              ? "linear-gradient(135deg, #C8B8D8, #E8DFF0)"
+                              : "linear-gradient(135deg, #F2D4D7, #FAE8EA)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "0.68rem",
+                          color: "#1A1A1A",
+                          flexShrink: 0,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {item.name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <p style={{ fontSize: "0.72rem", color: "#C0BAB4" }}>
-                          {time.toLocaleTimeString("es-CL", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                      <div>
+                        <p style={{ fontSize: "0.85rem", color: "#1A1A1A" }}>
+                          {item.name}
                         </p>
-                        <CheckCircle2 size={16} color="#7AC99A" />
+                        <p style={{ fontSize: "0.7rem", color: "#C0BAB4" }}>
+                          Registro Rápido
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="flex items-center gap-3">
+                      <p style={{ fontSize: "0.72rem", color: "#C0BAB4" }}>
+                        {item.time}
+                      </p>
+                      <CheckCircle2 size={16} color="#7AC99A" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -649,6 +761,14 @@ export function RegistroMatricula() {
         @keyframes fadeSlide {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </div>

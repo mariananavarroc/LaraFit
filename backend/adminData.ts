@@ -1211,6 +1211,130 @@ function toLocalISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Busca un estudiante por matrícula (ej: "LFS-001" o "001") y retorna su información */
+export async function findStudentByMatricula(matricula: string): Promise<Student | null> {
+  const normalized = normalizeMatriculaForCompare(matricula);
+  
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("matricula", normalized)
+    .eq("rol", 2)
+    .maybeSingle();
+  
+  if (error) {
+    throwIfMatriculaColumnMissing(error.message);
+    throw new Error(error.message);
+  }
+  
+  if (!data) {
+    return null;
+  }
+  
+  return normalizeStudent(data as DbUser);
+}
+
+/** Registra asistencia rápida por matrícula para hoy (Presente) y la guarda en BD */
+export async function registerQuickAttendanceByMatricula(params: {
+  matricula: string;
+  className?: string;
+}): Promise<{ studentId: string; studentName: string; date: string }> {
+  const normalized = normalizeMatriculaForCompare(params.matricula);
+  
+  // Buscar el estudiante por matrícula
+  const { data: userData, error: userError } = await supabase
+    .from("usuarios")
+    .select("*")
+    .eq("matricula", normalized)
+    .eq("rol", 2)
+    .maybeSingle();
+  
+  if (userError) {
+    throwIfMatriculaColumnMissing(userError.message);
+    throw new Error(userError.message);
+  }
+  
+  if (!userData) {
+    throw new Error("Matrícula no encontrada en la base de datos");
+  }
+  
+  const studentId = (userData as { id_alumna: string }).id_alumna;
+  const studentName = (userData as { nombre?: string }).nombre ?? "Estudiante";
+  const today = toLocalISODate(new Date());
+  
+  // Obtener horario asignado
+  let idHorario: string | null = null;
+  const { data: inscriptionData } = await supabase
+    .from("inscripcion")
+    .select("id_horario")
+    .eq("id_alumna", studentId)
+    .maybeSingle();
+  
+  if (inscriptionData) {
+    idHorario = (inscriptionData as { id_horario?: string | null }).id_horario ?? null;
+  }
+  
+  // Si no hay horario, obtener uno por defecto
+  if (!idHorario) {
+    const { data: defaultHorario } = await supabase
+      .from("horario")
+      .select("id_horario")
+      .limit(1)
+      .maybeSingle();
+    
+    if (defaultHorario) {
+      idHorario = (defaultHorario as { id_horario?: string }).id_horario ?? null;
+    }
+  }
+  
+  if (!idHorario) {
+    throw new Error("No se pudo asignar horario. Contacta al administrador");
+  }
+  
+  const className = params.className ?? "Registro Rápido";
+  
+  // Crear el registro de asistencia
+  const payload = {
+    id_asistencia: globalThis.crypto?.randomUUID?.() ?? `${studentId}-${Date.now()}`,
+    id_alumna: studentId,
+    id_horario: idHorario,
+    fecha: `${today}T12:00:00`,
+    clase: className,
+    estado: "Presente",
+  };
+  
+  // Intentar guardar en tabla de asistencia (con fallbacks)
+  let lastError = "";
+  for (const table of attendanceTables) {
+    // Primero eliminar cualquier registro existente de hoy para esta alumna
+    await supabase
+      .from(table)
+      .delete()
+      .eq("id_alumna", studentId)
+      .gte("fecha", `${today}T00:00:00`)
+      .lt("fecha", `${today}T23:59:59`);
+    
+    // Intentar insertar con id_asistencia
+    const insertAttempt = await supabase.from(table).insert(payload);
+    if (!insertAttempt.error) {
+      return { studentId, studentName, date: today };
+    }
+    
+    lastError = insertAttempt.error.message;
+    
+    // Fallback sin id_asistencia
+    const { id_asistencia: _, ...fallbackPayload } = payload;
+    const fallbackAttempt = await supabase.from(table).insert(fallbackPayload);
+    if (!fallbackAttempt.error) {
+      return { studentId, studentName, date: today };
+    }
+    
+    lastError = fallbackAttempt.error.message;
+  }
+  
+  throw new Error(`No se pudo registrar asistencia: ${lastError}`);
+}
+
 function horarioLabelFromRow(row: Record<string, unknown>): string {
   const explicit =
     String(row.nombre_horario ?? row.nombre ?? row.descripcion ?? row.horario ?? "").trim();
