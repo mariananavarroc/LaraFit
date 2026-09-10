@@ -20,6 +20,9 @@ import {
   type HorarioOption,
 } from "../../../backend/adminData";
 import { Calendar as DayCalendar } from "./ui/calendar";
+import { BibliotecaEntrenamientos } from "./alumna/BibliotecaEntrenamientos";
+import { Notificaciones } from "./alumna/Notificaciones";
+import { ProgresoAlumna } from "./alumna/ProgresoAlumna";
 
 function citaEstadoAlumna(estado: string): { titulo: string; detalle: string; badgeBg: string; badgeColor: string } {
   const e = estado.toLowerCase();
@@ -63,7 +66,9 @@ export function MiCuenta() {
   const [paymentAmount, setPaymentAmount] = useState("500");
   const [paymentMethod, setPaymentMethod] = useState("Transferencia");
   const [savingPayment, setSavingPayment] = useState(false);
-  const [activeTab, setActiveTab] = useState<"inicio" | "cita">("inicio");
+  const [activeTab, setActiveTab] = useState<
+  "inicio" | "cita" | "biblioteca" | "notificaciones" | "progreso"
+>("inicio");
   const [reminder, setReminder] = useState<{ shown: boolean; message: string | null } | null>(null);
   const [miCitas, setMiCitas] = useState<CitaRow[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
@@ -420,12 +425,15 @@ export function MiCuenta() {
             paddingBottom: 4,
           }}
         >
-          {(
-            [
-              { id: "inicio" as const, label: "Inicio" },
-              { id: "cita" as const, label: "Citas" },
-            ]
-          ).map((t) => (
+         {(
+  [
+    { id: "inicio" as const, label: "Inicio" },
+    { id: "cita" as const, label: "Citas" },
+    { id: "biblioteca" as const, label: "Biblioteca" },
+    { id: "notificaciones" as const, label: "Notificaciones" },
+    { id: "progreso" as const, label: "Progreso" },
+  ]
+).map((t) => (
             <button
               key={t.id}
               type="button"
@@ -680,7 +688,11 @@ export function MiCuenta() {
             </div>
           </div>
         )}
+        {activeTab === "biblioteca" && <BibliotecaEntrenamientos />}
 
+        {activeTab === "notificaciones" && <Notificaciones />}
+
+        {activeTab === "progreso" && <ProgresoAlumna />}
         {activeTab === "inicio" && (
           <>
         {/* Header */}
