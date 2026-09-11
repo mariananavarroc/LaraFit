@@ -1,6 +1,6 @@
 <div align="center">
   <h1>🏋️‍♀️ Sistema Web Administrativo - LaraFit Studio</h1>
-  <p><i>Proyecto Integrador 1 | FIME - UANL</i></p>
+  <p><i>Proyecto Integrador | FIME - UANL</i></p>
 </div>
 
 ---
@@ -47,7 +47,7 @@ El desarrollo se gestiona utilizando la **metodología ágil SCRUM** a través d
 
 ---
 
-## 👥 Equipo de Trabajo (Equipo #8)
+## 👥 Equipo de Trabajo
 
 | Nombre | Matrícula | Carrera | Rol Principal |
 | :--- | :--- | :--- | :--- |
@@ -56,6 +56,7 @@ El desarrollo se gestiona utilizando la **metodología ágil SCRUM** a través d
 | Elda Yaeli Zúñiga Peña   |  2177920  | ITS  | Desarrolladora  |
 | Leonardo Iván Villarreal Lizcano | 2011269  | ITS  | Desarrollador  |
 | Ilse Madai Rodríguez Perez  | 2111271  | ITS  | Desarrolladora  |
+| Jan Carlos Márquez López  | 2173816  | ITS  | Desarrollador  |
 
 **Product Owner:** Dueña de LaraFit Studio.
 **Docente:** Alicia Yesenia López Sánchez.
