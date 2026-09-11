@@ -1390,20 +1390,63 @@ export async function listHorarioOptions(): Promise<HorarioOption[]> {
   };
 
   // Preferimos tabla `horario` si existe.
-  const { data: hData, error: hErr } = await supabase.from("horario").select("*").limit(500);
-  if (!hErr && (hData ?? []).length > 0) {
-    const cands = ((hData ?? []) as Record<string, unknown>[]).map((row) => {
-      const id = String(row.id_horario ?? row.id ?? "").trim();
-      if (!id) return null;
-      const t = extractRepresentativeTime(row);
-      const labelFromRow = horarioLabelFromRow(row);
-      const label = t ? hourToLabel(t.hour, t.minute) : labelFromRow;
-      const key = t ? `time-${label}` : `label-${labelFromRow}`;
-      const order = t ? t.hour * 60 + t.minute : 9999;
-      return { id, key, order, label } satisfies Candidate;
-    }).filter(Boolean) as Candidate[];
-    return dedupeCandidates(cands).map((c) => ({ id: c.id, label: c.label }));
-  }
+  const { data: hData, error: hErr } = await supabase
+      .from("horario")
+      .select("*")
+      .limit(500);
+
+    if (!hErr && (hData ?? []).length > 0) {
+      const formatDbTime = (value: unknown): string => {
+        const raw = String(value ?? "").trim();
+        const match = raw.match(/^(\d{1,2}):(\d{2})/);
+
+        if (!match) return "";
+
+        const hh = match[1].padStart(2, "0");
+        const mm = match[2];
+
+        return `${hh}:${mm}`;
+      };
+
+      const horarios = ((hData ?? []) as Record<string, unknown>[])
+        .map((row) => {
+          const id = String(row.id_horario ?? row.id ?? "").trim();
+
+          if (!id) return null;
+
+          const inicio = formatDbTime(row.hora_inicio ?? row.hora);
+          const fin = formatDbTime(row.hora_fin);
+
+          const label =
+            inicio && fin
+              ? `${inicio} - ${fin}`
+              : inicio || horarioLabelFromRow(row);
+
+          const [hour, minute] = inicio
+            ? inicio.split(":").map(Number)
+            : [99, 99];
+
+          const order = hour * 60 + minute;
+
+          return {
+            id,
+            label,
+            order,
+          };
+        })
+        .filter(Boolean) as {
+          id: string;
+          label: string;
+          order: number;
+        }[];
+
+      return horarios
+          .sort((a, b) => a.order - b.order)
+          .map(({ id, label }) => ({
+            id,
+            label,
+          }));
+}
 
   // Fallback con `horarios_clases`.
   const { data: hcData, error: hcErr } = await supabase.from("horarios_clases").select("*").limit(500);

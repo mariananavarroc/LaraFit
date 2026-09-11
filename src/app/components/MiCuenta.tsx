@@ -67,8 +67,14 @@ export function MiCuenta() {
   const [paymentMethod, setPaymentMethod] = useState("Transferencia");
   const [savingPayment, setSavingPayment] = useState(false);
   const [activeTab, setActiveTab] = useState<
-  "inicio" | "cita" | "biblioteca" | "notificaciones" | "progreso"
->("inicio");
+  | "inicio"
+  | "membresia"
+  | "horarios"
+  | "cita"
+  | "biblioteca"
+  | "notificaciones"
+  | "progreso"
+  >("inicio");
   const [reminder, setReminder] = useState<{ shown: boolean; message: string | null } | null>(null);
   const [miCitas, setMiCitas] = useState<CitaRow[]>([]);
   const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
@@ -80,6 +86,33 @@ export function MiCuenta() {
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [availableHorarios, setAvailableHorarios] = useState<HorarioOption[]>([]);
   const [selectedHorarioId, setSelectedHorarioId] = useState("");
+  const [previewHorarioId, setPreviewHorarioId] = useState("");
+  const reservableHorarios = useMemo(
+  () =>
+    availableHorarios.filter(
+      (horario) =>
+        horario.label !== "09:00" &&
+        horario.label !== "08:00 - 09:00"
+    ),
+    [availableHorarios]
+  );
+  const previewHorario = reservableHorarios.find(
+    (horario) => horario.id === previewHorarioId
+  );
+  useEffect(() => {
+  if (reservableHorarios.length === 0) {
+    setSelectedHorarioId("");
+    return;
+  }
+
+  const horarioSigueDisponible = reservableHorarios.some(
+    (horario) => horario.id === selectedHorarioId
+  );
+
+  if (!horarioSigueDisponible) {
+    setSelectedHorarioId(reservableHorarios[0].id);
+  }
+}, [reservableHorarios, selectedHorarioId]);
   const [selectedAttendanceDay, setSelectedAttendanceDay] = useState<Date | undefined>(new Date());
   const [confirmedSlots, setConfirmedSlots] = useState<string[]>([]);
 
@@ -102,6 +135,7 @@ export function MiCuenta() {
       }
 
       const userData = await getUserData(sessionData.id);
+
       if (!userData) {
         navigate("/login");
         return;
@@ -259,6 +293,25 @@ export function MiCuenta() {
         day: "numeric",
         month: "long",
         year: "numeric",
+      })
+    : "—";
+
+  const membershipStatus = user?.estado_pago || "Sin información";
+
+  const membershipModeLabel =
+  user?.estado_pago === "Al día"
+    ? "Membresía activa"
+    : user?.estado_pago === "Pendiente"
+      ? "Pago pendiente"
+      : user?.estado_pago === "Vencido"
+        ? "Membresía vencida"
+        : "Sin membresía activa";
+
+  const membershipFeeLabel =
+  user?.cuota_mensual != null && Number(user.cuota_mensual) > 0
+    ? Number(user.cuota_mensual).toLocaleString("es-MX", {
+        style: "currency",
+        currency: "MXN",
       })
     : "—";
 
@@ -425,15 +478,17 @@ export function MiCuenta() {
             paddingBottom: 4,
           }}
         >
-         {(
-  [
-    { id: "inicio" as const, label: "Inicio" },
-    { id: "cita" as const, label: "Citas" },
-    { id: "biblioteca" as const, label: "Biblioteca" },
-    { id: "notificaciones" as const, label: "Notificaciones" },
-    { id: "progreso" as const, label: "Progreso" },
-  ]
-).map((t) => (
+          {(
+          [
+            { id: "inicio" as const, label: "Inicio" },
+            { id: "membresia" as const, label: "Mi Membresía" },
+            { id: "horarios" as const, label: "Horarios" },
+            { id: "cita" as const, label: "Citas" },
+            { id: "biblioteca" as const, label: "Biblioteca" },
+            { id: "notificaciones" as const, label: "Notificaciones" },
+            { id: "progreso" as const, label: "Progreso" },
+          ]
+            ).map((t) => (
             <button
               key={t.id}
               type="button"
@@ -693,6 +748,608 @@ export function MiCuenta() {
         {activeTab === "notificaciones" && <Notificaciones />}
 
         {activeTab === "progreso" && <ProgresoAlumna />}
+
+        {activeTab === "membresia" && (
+                  <div>
+                    {/* Encabezado de membresía */}
+                    <div
+                      style={{
+                        background: "linear-gradient(135deg, #1A1A1A 0%, #2D2030 100%)",
+                        borderRadius: 20,
+                        padding: "32px 36px",
+                        marginBottom: 24,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 20,
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          width: 190,
+                          height: 190,
+                          borderRadius: "50%",
+                          background: "rgba(200,184,216,0.08)",
+                          right: -45,
+                          top: -55,
+                        }}
+                      />
+
+                      <div style={{ position: "relative", zIndex: 1 }}>
+                        <p
+                          style={{
+                            color: "#C8B8D8",
+                            fontSize: "0.65rem",
+                            letterSpacing: "0.18em",
+                            textTransform: "uppercase",
+                            marginBottom: 8,
+                          }}
+                        >
+                          Mi membresía
+                        </p>
+
+                        <h2
+                          style={{
+                            fontFamily: "'Cormorant Garamond', serif",
+                            color: "#FFFFFF",
+                            fontSize: "1.8rem",
+                            fontWeight: 400,
+                            marginBottom: 6,
+                          }}
+                        >
+                          Tu espacio en Lara Fit
+                        </h2>
+
+                        <p
+                          style={{
+                            color: "rgba(255,255,255,0.55)",
+                            fontSize: "0.82rem",
+                            margin: 0,
+                          }}
+                        >
+                          Consulta el estado, vigencia y beneficios de tu membresía.
+                        </p>
+                      </div>
+
+                      <div
+                        style={{
+                          padding: "8px 16px",
+                          borderRadius: 999,
+                          background:
+                            membershipStatus === "Al día"
+                              ? "rgba(180,220,200,0.18)"
+                              : membershipStatus === "Pendiente"
+                              ? "rgba(240,200,130,0.18)"
+                              : "rgba(242,212,215,0.18)",
+                          color:
+                            membershipStatus === "Al día"
+                              ? "#B9E0C7"
+                              : membershipStatus === "Pendiente"
+                              ? "#E8C888"
+                              : "#F2D4D7",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          position: "relative",
+                          zIndex: 1,
+                        }}
+                      >
+                        {membershipStatus}
+                      </div>
+                    </div>
+
+                    {/* Resumen */}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                        gap: 16,
+                        marginBottom: 24,
+                      }}
+                    >
+                      {[
+                        {
+                          label: "Estado de Membresía",
+                          value: membershipModeLabel,
+                          sub: "Estado actual de la membresía",
+                        },
+                        {
+                          label: "Vigencia",
+                          value: membershipEndLabel,
+                          sub: "Fin del período pagado",
+                        },
+                        {
+                          label: "Cuota mensual",
+                          value: membershipFeeLabel,
+                          sub: "Monto registrado",
+                        },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          style={{
+                            background: "#FFFFFF",
+                            border: "1px solid #F0EDE8",
+                            borderRadius: 16,
+                            padding: "22px 24px",
+                            boxShadow: "0 1px 10px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          <p
+                            style={{
+                              color: "#9D9D9D",
+                              fontSize: "0.66rem",
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              marginBottom: 10,
+                            }}
+                          >
+                            {item.label}
+                          </p>
+
+                          <p
+                            style={{
+                              color: "#1A1A1A",
+                              fontSize: "1rem",
+                              marginBottom: 4,
+                            }}
+                          >
+                            {item.value}
+                          </p>
+
+                          <p style={{ color: "#C0BAB4", fontSize: "0.72rem", margin: 0 }}>
+                            {item.sub}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Beneficios actuales */}
+                    <div
+                      style={{
+                        background: "#FFFFFF",
+                        border: "1px solid #F0EDE8",
+                        borderRadius: 16,
+                        padding: "26px 28px",
+                        marginBottom: 20,
+                        boxShadow: "0 1px 10px rgba(0,0,0,0.04)",
+                      }}
+                    >
+                      <p
+                        style={{
+                          color: "#C8B8D8",
+                          fontSize: "0.65rem",
+                          letterSpacing: "0.18em",
+                          textTransform: "uppercase",
+                          marginBottom: 10,
+                        }}
+                      >
+                        Tu membresía
+                      </p>
+
+                      <h3
+                        style={{
+                          fontFamily: "'Cormorant Garamond', serif",
+                          fontSize: "1.3rem",
+                          fontWeight: 400,
+                          color: "#1A1A1A",
+                          marginBottom: 18,
+                        }}
+                      >
+                        Beneficios actuales
+                      </h3>
+
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                          gap: 12,
+                        }}
+                      >
+                        {[
+                          "Consulta de horarios",
+                          "Registro de asistencia",
+                          "Gestión de citas",
+                          "Consulta de vigencia",
+                        ].map((benefit) => (
+                          <div
+                            key={benefit}
+                            style={{
+                              padding: "14px 16px",
+                              borderRadius: 12,
+                              background: "#FDFCFB",
+                              border: "1px solid #F0EDE8",
+                              fontSize: "0.8rem",
+                              color: "#5C5650",
+                            }}
+                          >
+                            ✓ &nbsp;{benefit}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Preview Premium */}
+                    <div
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(200,184,216,0.20), rgba(242,212,215,0.25))",
+                        border: "1px solid rgba(200,184,216,0.45)",
+                        borderRadius: 16,
+                        padding: "26px 28px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 20,
+                      }}
+                    >
+                      <div style={{ flex: "1 1 300px" }}>
+                        <p
+                          style={{
+                            color: "#7B5EA7",
+                            fontSize: "0.65rem",
+                            letterSpacing: "0.18em",
+                            textTransform: "uppercase",
+                            marginBottom: 8,
+                          }}
+                        >
+                          Próximamente
+                        </p>
+
+                        <h3
+                          style={{
+                            fontFamily: "'Cormorant Garamond', serif",
+                            fontSize: "1.3rem",
+                            fontWeight: 400,
+                            color: "#1A1A1A",
+                            marginBottom: 8,
+                          }}
+                        >
+                          Lara Fit Premium
+                        </h3>
+
+                        <p
+                          style={{
+                            color: "#6B6560",
+                            fontSize: "0.8rem",
+                            lineHeight: 1.55,
+                            margin: 0,
+                          }}
+                        >
+                          Acceso a biblioteca de entrenamientos, contenido exclusivo y
+                          seguimiento de progreso.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("horarios")}
+                        style={{
+                          padding: "11px 18px",
+                          borderRadius: 10,
+                          border: "none",
+                          background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+                          color: "#1A1A1A",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          fontFamily: "'DM Sans', sans-serif",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Ver horarios
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "horarios" && (
+          <div>
+            {/* Encabezado */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, #1A1A1A 0%, #302635 100%)",
+                borderRadius: 20,
+                padding: "32px 36px",
+                marginBottom: 24,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 20,
+                position: "relative",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  width: 180,
+                  height: 180,
+                  borderRadius: "50%",
+                  background: "rgba(200,184,216,0.08)",
+                  right: -35,
+                  top: -60,
+                }}
+              />
+
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <p
+                  style={{
+                    color: "#C8B8D8",
+                    fontSize: "0.65rem",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    marginBottom: 8,
+                  }}
+                >
+                  Horarios
+                </p>
+
+                <h2
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    color: "#FFFFFF",
+                    fontSize: "1.8rem",
+                    fontWeight: 400,
+                    marginBottom: 6,
+                  }}
+                >
+                  Encuentra tu horario
+                </h2>
+
+                <p
+                  style={{
+                    color: "rgba(255,255,255,0.55)",
+                    fontSize: "0.82rem",
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
+                  Consulta los horarios disponibles y prepara tu próxima reservación.
+                </p>
+              </div>
+
+              <div
+                style={{
+                  padding: "8px 15px",
+                  borderRadius: 999,
+                  background: "rgba(200,184,216,0.12)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "#E6DBEE",
+                  fontSize: "0.74rem",
+                  position: "relative",
+                  zIndex: 1,
+                }}
+              >
+                {reservableHorarios.length} horarios disponibles
+              </div>
+            </div>
+
+            {/* Lista de horarios */}
+            <div
+              style={{
+                background: "#FFFFFF",
+                borderRadius: 16,
+                padding: "26px 28px",
+                border: "1px solid #F0EDE8",
+                boxShadow: "0 1px 10px rgba(0,0,0,0.04)",
+                marginBottom: 20,
+              }}
+            >
+              <p
+                style={{
+                  color: "#C8B8D8",
+                  fontSize: "0.65rem",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  marginBottom: 10,
+                }}
+              >
+                Disponibilidad
+              </p>
+
+              <h3
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: "1.3rem",
+                  fontWeight: 400,
+                  color: "#1A1A1A",
+                  marginBottom: 6,
+                }}
+              >
+                Horarios del estudio
+              </h3>
+
+              <p
+                style={{
+                  fontSize: "0.78rem",
+                  color: "#9D9D9D",
+                  lineHeight: 1.5,
+                  marginBottom: 20,
+                }}
+              >
+                Selecciona un horario para visualizarlo como opción de reservación.
+              </p>
+
+              {reservableHorarios.length === 0 ? (
+                <div
+                  style={{
+                    padding: "24px",
+                    borderRadius: 12,
+                    background: "#FDFCFB",
+                    border: "1px solid #F0EDE8",
+                    textAlign: "center",
+                    color: "#9D9D9D",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  No hay horarios disponibles actualmente.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  {reservableHorarios.map((horario) => {
+                    const selected = previewHorarioId === horario.id;
+
+                    return (
+                      <button
+                        key={horario.id}
+                        type="button"
+                        onClick={() =>
+                          setPreviewHorarioId((current) =>
+                            current === horario.id ? "" : horario.id
+                          )
+                        }
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          padding: "18px",
+                          borderRadius: 14,
+                          border: selected
+                            ? "1.5px solid #B796CF"
+                            : "1px solid #F0EDE8",
+                          background: selected
+                            ? "linear-gradient(135deg, rgba(200,184,216,0.20), rgba(242,212,215,0.22))"
+                            : "#FDFCFB",
+                          cursor: "pointer",
+                          fontFamily: "'DM Sans', sans-serif",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: "0.66rem",
+                            color: selected ? "#7B5EA7" : "#B1AAA4",
+                            letterSpacing: "0.12em",
+                            textTransform: "uppercase",
+                            marginBottom: 8,
+                          }}
+                        >
+                          {selected ? "Seleccionado" : "Horario disponible"}
+                        </p>
+
+                        <p
+                          style={{
+                            fontSize: "1rem",
+                            color: "#1A1A1A",
+                            marginBottom: 4,
+                            fontWeight: 500,
+                          }}
+                        >
+                          {horario.label}
+                        </p>
+
+                        <p
+                          style={{
+                            fontSize: "0.72rem",
+                            color: "#9D9D9D",
+                            margin: 0,
+                          }}
+                        >
+                          Lara Fit Studio
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Reservación */}
+            <div
+              style={{
+                background:
+                  previewHorarioId
+                    ? "linear-gradient(135deg, rgba(200,184,216,0.18), rgba(242,212,215,0.22))"
+                    : "#FFFFFF",
+                border: previewHorarioId
+                  ? "1px solid rgba(183,150,207,0.35)"
+                  : "1px solid #F0EDE8",
+                borderRadius: 16,
+                padding: "26px 28px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 20,
+                boxShadow: "0 1px 10px rgba(0,0,0,0.04)",
+              }}
+            >
+              <div style={{ flex: "1 1 280px" }}>
+                <p
+                  style={{
+                    color: "#C8B8D8",
+                    fontSize: "0.65rem",
+                    letterSpacing: "0.18em",
+                    textTransform: "uppercase",
+                    marginBottom: 8,
+                  }}
+                >
+                  Reservaciones
+                </p>
+
+                <h3
+                  style={{
+                    fontFamily: "'Cormorant Garamond', serif",
+                    fontSize: "1.3rem",
+                    fontWeight: 400,
+                    color: "#1A1A1A",
+                    marginBottom: 7,
+                  }}
+                >
+                  {previewHorario
+                    ? previewHorario.label
+                    : "Selecciona un horario"}
+                </h3>
+
+                <p
+                  style={{
+                    color: "#6B6560",
+                    fontSize: "0.8rem",
+                    lineHeight: 1.55,
+                    margin: 0,
+                  }}
+                >
+                  {previewHorarioId
+                    ? "La reservación y cancelación de clases se habilitará durante la siguiente etapa del desarrollo."
+                    : "Elige uno de los horarios disponibles para preparar tu reservación."}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled
+                style={{
+                  padding: "11px 18px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: previewHorarioId
+                    ? "linear-gradient(135deg, #C8B8D8, #F2D4D7)"
+                    : "#EEEAE6",
+                  color: previewHorarioId ? "#1A1A1A" : "#AAA39D",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  cursor: "not-allowed",
+                  fontFamily: "'DM Sans', sans-serif",
+                  opacity: previewHorarioId ? 0.75 : 1,
+                }}
+              >
+                Próximamente
+              </button>
+            </div>
+          </div>
+        )}
+
         {activeTab === "inicio" && (
           <>
         {/* Header */}
@@ -757,7 +1414,7 @@ export function MiCuenta() {
               zIndex: 1,
             }}
           >
-            Alumna activa
+            {user.estado ? "Alumna activa" : "Alumna inactiva"}
           </div>
         </div>
 
@@ -780,9 +1437,9 @@ export function MiCuenta() {
             },
             {
               icon: CreditCard,
-              label: "Plan actual",
-              value: user.plan || "Plan mensual",
-              sub: "Cuota y modalidad",
+              label: "Estado de membresía",
+              value: membershipModeLabel,
+              sub: "Estado actual",
             },
             {
               icon: CalendarDays,
@@ -883,7 +1540,7 @@ export function MiCuenta() {
             <select
               value={selectedHorarioId}
               onChange={(e) => setSelectedHorarioId(e.target.value)}
-              disabled={availableHorarios.length === 0}
+              disabled={reservableHorarios.length === 0}
               style={{
                 padding: "10px 12px",
                 borderRadius: 10,
@@ -895,10 +1552,10 @@ export function MiCuenta() {
                 outline: "none",
               }}
             >
-              {availableHorarios.length === 0 ? (
+              {reservableHorarios.length === 0 ? (
                 <option value="">No hay horarios disponibles</option>
               ) : (
-                availableHorarios.map((h) => (
+                reservableHorarios.map((h) => (
                   <option key={h.id} value={h.id}>
                     {h.label}
                   </option>
@@ -1001,13 +1658,11 @@ export function MiCuenta() {
           <p style={{ color: "#C8B8D8", fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 12 }}>
             Pagos
           </p>
-          <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.25rem", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
-            Pagar membresía
-          </h3>
+            <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.25rem", fontWeight: 400, color: "#1A1A1A", marginBottom: 8 }}>
+              Solicitar pago de membresía
+            </h3>
           <p style={{ fontSize: "0.78rem", color: "#9D9D9D", marginBottom: 16, lineHeight: 1.45 }}>
-            Tu membresía está vigente hasta <strong style={{ color: "#1A1A1A" }}>{membershipEndLabel}</strong>. Al pulsar{" "}
-            <strong>Pagar</strong> envías la solicitud; la administradora la revisará y confirmará antes de actualizar tu
-            cuenta.
+            Tu membresía está vigente hasta <strong style={{ color: "#1A1A1A" }}>{membershipEndLabel}</strong>. El monto mostrado es el sugerido según tu membresía. Al enviar la solicitud, la administradora la revisará y confirmará antes de actualizar tu cuenta.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10 }}>
             <input
@@ -1060,7 +1715,7 @@ export function MiCuenta() {
                 opacity: savingPayment ? 0.7 : 1,
               }}
             >
-              {savingPayment ? "Enviando..." : "Pagar"}
+              {savingPayment ? "Enviando..." : "Enviar solicitud"}
             </button>
           </div>
         </div>
