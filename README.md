@@ -22,6 +22,8 @@ El sistema está diseñado para resolver las necesidades operativas diarias medi
     * Listado completo con buscador y filtros por estado de pago.
     * Perfiles individuales detallados con información personal, contactos de emergencia, historial de pagos y métricas de asistencia.
     * Módulo de registro seguro para nuevas alumnas con validación de contraseñas y medición de seguridad .
+* **💳 Membresías:** selección de plan Estándar o Premium, consulta del estado y vigencia, y acceso a entrenamientos según el plan.
+* **🗓️ Horarios y clases:** consulta de horarios y cupos, reservación de clases por fecha y cancelación desde la cuenta de alumna.
 * **✅ Control de Asistencias:**
     * Panel diario para marcar asistencia (Presente, Ausente, Justificado) con filtros por clase y resumen general del día.
 * **💳 Panel de Control (Dashboard):**
@@ -66,3 +68,5 @@ El desarrollo se gestiona utilizando la **metodología ágil SCRUM** a través d
 ## 🚀 Instalación y Uso (Próximamente)
 
 *(En esta sección, el equipo agregará más adelante las instrucciones sobre cómo clonar el repositorio, instalar dependencias, configurar las variables de entorno de la base de datos y correr el servidor local).*
+
+Para habilitar reservaciones y cupos en Supabase, crea primero `public.horarios_clases` con `supabase-admin-schema.sql` y después ejecuta `supabase-add-clase-reservas.sql` en el SQL Editor. La migración agrega `cupo_max` (20 por defecto), las funciones/tablas que utiliza la cuenta de alumna y copia el horario base existente solo si `horarios_clases` está vacía. Los planes de membresía usan la columna `usuarios.plan` existente.

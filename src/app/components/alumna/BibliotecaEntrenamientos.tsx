@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Play,
   Clock,
@@ -7,7 +7,9 @@ import {
   Dumbbell,
   X,
   ChevronLeft,
+  LockKeyhole,
 } from "lucide-react";
+import { getMembershipTier } from "../../data/membership";
 
 type Disciplina = "Trampolín" | "Fuerza" | "Pilates" | "Baile";
 type Nivel = "Principiante" | "Intermedio" | "Avanzado";
@@ -127,12 +129,17 @@ const niveles: Array<Nivel | "Todos"> = [
   "Avanzado",
 ];
 
-export function BibliotecaEntrenamientos() {
+export function BibliotecaEntrenamientos({ plan }: { plan?: string | null }) {
+  const premiumAccess = getMembershipTier(plan) === "premium";
   const [filtroDisciplina, setFiltroDisciplina] =
     useState<(typeof disciplinas)[number]>("Todas");
   const [filtroNivel, setFiltroNivel] =
     useState<(typeof niveles)[number]>("Todos");
   const [seleccionado, setSeleccionado] = useState<Entrenamiento | null>(null);
+
+  useEffect(() => {
+    if (!premiumAccess && seleccionado?.premium) setSeleccionado(null);
+  }, [premiumAccess, seleccionado]);
 
   const filtrados = useMemo(
     () =>
@@ -145,7 +152,7 @@ export function BibliotecaEntrenamientos() {
     [filtroDisciplina, filtroNivel],
   );
 
-  if (seleccionado) {
+  if (seleccionado && (!seleccionado.premium || premiumAccess)) {
     return (
       <div>
         <button
@@ -428,7 +435,9 @@ export function BibliotecaEntrenamientos() {
           gap: 16,
         }}
       >
-        {filtrados.map((e) => (
+        {filtrados.map((e) => {
+          const locked = e.premium && !premiumAccess;
+          return (
           <div
             key={e.id}
             style={{
@@ -468,7 +477,7 @@ export function BibliotecaEntrenamientos() {
                     textTransform: "uppercase",
                   }}
                 >
-                  Premium
+                  {locked ? "Premium · Bloqueado" : "Premium"}
                 </span>
               )}
             </div>
@@ -535,25 +544,32 @@ export function BibliotecaEntrenamientos() {
               </div>
               <button
                 type="button"
+                disabled={locked}
                 onClick={() => setSeleccionado(e)}
                 style={{
                   marginTop: "auto",
                   padding: "9px 14px",
                   borderRadius: 10,
-                  border: "none",
-                  background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
-                  color: "#1A1A1A",
+                  border: locked ? "1px solid #E8E4DF" : "none",
+                  background: locked ? "#F7F5F2" : "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+                  color: locked ? "#8C8580" : "#1A1A1A",
                   fontSize: "0.78rem",
-                  cursor: "pointer",
+                  cursor: locked ? "not-allowed" : "pointer",
                   fontFamily: "'DM Sans', sans-serif",
                   fontWeight: 500,
                 }}
               >
-                Ver entrenamiento
+                {locked ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <LockKeyhole size={13} />
+                    Disponible con Premium
+                  </span>
+                ) : "Ver entrenamiento"}
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {filtrados.length === 0 && (

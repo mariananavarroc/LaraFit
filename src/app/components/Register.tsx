@@ -2,12 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { signup } from "../../../backend/auth";
 import { Flower2, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import { PREMIUM_PLAN, STANDARD_PLAN, type MembershipTier } from "../data/membership";
 
 export function Register() {
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [membershipTier, setMembershipTier] = useState<MembershipTier>("estandar");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,10 +51,11 @@ export function Register() {
       nombre: name.trim() || undefined,
       email: email.trim(),
       password,
+      membershipTier,
     });
 
     setLoading(false);
-    if (result.success) {
+    if (result.success === true) {
       navigate("/mi-cuenta");
     } else {
       setError(result.error || "Error al registrar.");
@@ -185,6 +188,20 @@ export function Register() {
                 onFocus={(e) => (e.target.style.borderColor = "#C8B8D8")}
                 onBlur={(e) => (e.target.style.borderColor = "#E8E4DF")}
               />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Tipo de membresía</label>
+              <select
+                value={membershipTier}
+                onChange={(e) =>
+                  setMembershipTier(e.target.value === "premium" ? "premium" : "estandar")
+                }
+                style={inputStyle}
+              >
+                <option value="estandar">{STANDARD_PLAN}</option>
+                <option value="premium">{PREMIUM_PLAN}</option>
+              </select>
             </div>
 
             {/* Email */}

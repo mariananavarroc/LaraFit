@@ -8,6 +8,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { getAdminStudents } from "../../../backend/adminData";
+import { getMembershipPlanLabel } from "../data/membership";
 
 function PaymentBadge({ status }: { status: Student["paymentStatus"] }) {
   const styles = {
@@ -260,7 +261,7 @@ export function Alumnas() {
                   {s.phone}
                 </td>
                 <td style={{ padding: "16px 20px", fontSize: "0.82rem", color: "#9D9D9D" }}>
-                  {s.plan}
+                  {getMembershipPlanLabel(s.plan)}
                 </td>
                 <td style={{ padding: "16px 20px", fontSize: "0.8rem", color: "#9D9D9D", maxWidth: 180 }}>
                   {s.schedule}

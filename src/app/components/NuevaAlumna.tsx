@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ChevronLeft, Save, UserPlus } from "lucide-react";
 import { createAdminStudent } from "../../../backend/adminData";
+import { PREMIUM_PLAN, STANDARD_PLAN } from "../data/membership";
 
 function Field({
   label,
@@ -63,7 +64,7 @@ export function NuevaAlumna() {
     email: "",
     phone: "",
     birthDate: "",
-    plan: "Plan Premium",
+    plan: STANDARD_PLAN,
     schedule: "",
     emergencyName: "",
     emergencyPhone: "",
@@ -280,9 +281,8 @@ export function NuevaAlumna() {
                   outline: "none",
                 }}
               >
-                <option>Plan Básico</option>
-                <option>Plan Mensual</option>
-                <option>Plan Premium</option>
+                <option value={STANDARD_PLAN}>{STANDARD_PLAN}</option>
+                <option value={PREMIUM_PLAN}>{PREMIUM_PLAN}</option>
               </select>
             </div>
             <Field label="Horario" placeholder="Ej. Lunes, Miércoles — 9:00 AM" value={form.schedule} onChange={set("schedule")} />

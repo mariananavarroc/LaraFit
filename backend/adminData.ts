@@ -18,6 +18,17 @@ export type HorarioOption = {
   label: string;
 };
 
+export type AvailableClassSession = {
+  id: number;
+  time: string;
+  day: string;
+  className: string;
+  capacity: number;
+  occupied: number;
+  available: number;
+  reservationId: string | null;
+};
+
 type DbUser = {
   id_alumna: string;
   nombre: string | null;
@@ -651,6 +662,73 @@ export async function getClassSchedule(): Promise<ClassScheduleRow[]> {
   }));
 }
 
+const CLASS_RESERVATIONS_SQL_HINT =
+  "Ejecuta el script supabase-add-clase-reservas.sql en el SQL Editor de Supabase.";
+
+export async function listAvailableClassSessions(date: string): Promise<AvailableClassSession[]> {
+  const { data, error } = await supabase.rpc("listar_clases_disponibles", {
+    p_fecha: date,
+  });
+  if (error) {
+    throw new Error(
+      isSupabaseTableUnavailableError(error.message) || error.message.toLowerCase().includes("function")
+        ? `${CLASS_RESERVATIONS_SQL_HINT} Detalle: ${error.message}`
+        : error.message,
+    );
+  }
+
+  return ((data ?? []) as Array<{
+    id_horario_clase: number;
+    bloque_horario: string;
+    dia: string;
+    nombre_clase: string;
+    cupo_max: number;
+    cupos_ocupados: number;
+    cupos_disponibles: number;
+    id_reserva: string | null;
+  }>).map((row) => ({
+    id: Number(row.id_horario_clase),
+    time: row.bloque_horario,
+    day: row.dia,
+    className: row.nombre_clase,
+    capacity: Number(row.cupo_max),
+    occupied: Number(row.cupos_ocupados),
+    available: Number(row.cupos_disponibles),
+    reservationId: row.id_reserva,
+  }));
+}
+
+export async function reserveClassSession(scheduleId: number, date: string): Promise<string> {
+  const { data, error } = await supabase.rpc("reservar_clase", {
+    p_id_horario_clase: scheduleId,
+    p_fecha: date,
+  });
+  if (error) {
+    throw new Error(
+      isSupabaseTableUnavailableError(error.message) || error.message.toLowerCase().includes("function")
+        ? `${CLASS_RESERVATIONS_SQL_HINT} Detalle: ${error.message}`
+        : error.message,
+    );
+  }
+  if (typeof data !== "string") {
+    throw new Error("La base de datos no devolvió el identificador de la reservación.");
+  }
+  return data;
+}
+
+export async function cancelClassReservation(reservationId: string): Promise<void> {
+  const { error } = await supabase.rpc("cancelar_reserva_clase", {
+    p_id_reserva: reservationId,
+  });
+  if (error) {
+    throw new Error(
+      isSupabaseTableUnavailableError(error.message) || error.message.toLowerCase().includes("function")
+        ? `${CLASS_RESERVATIONS_SQL_HINT} Detalle: ${error.message}`
+        : error.message,
+    );
+  }
+}
+
 export async function getAttendanceByStudent(studentId: string): Promise<Student["attendance"]> {
   for (const table of attendanceTables) {
     const { data, error } = await supabase
@@ -742,7 +820,7 @@ export async function createAdminStudent(params: {
     .from("usuarios")
     .update({
       matricula: matriculaValue,
-      plan: params.plan || "Plan Mensual",
+      plan: params.plan || "Plan Estándar",
       horario: params.schedule || null,
       fecha_nacimiento: params.birthDate || null,
     })

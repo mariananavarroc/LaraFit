@@ -21,8 +21,10 @@ import {
 } from "../../../backend/adminData";
 import { Calendar as DayCalendar } from "./ui/calendar";
 import { BibliotecaEntrenamientos } from "./alumna/BibliotecaEntrenamientos";
+import { ReservasClases } from "./alumna/ReservasClases";
 import { Notificaciones } from "./alumna/Notificaciones";
 import { ProgresoAlumna } from "./alumna/ProgresoAlumna";
+import { getMembershipPlanLabel, getMembershipTier } from "../data/membership";
 
 function citaEstadoAlumna(estado: string): { titulo: string; detalle: string; badgeBg: string; badgeColor: string } {
   const e = estado.toLowerCase();
@@ -58,6 +60,24 @@ function citaEstadoAlumna(estado: string): { titulo: string; detalle: string; ba
   };
 }
 
+function localDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatMembershipEndDate(value: string | null | undefined): string {
+  if (!value) return "—";
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return "—";
+  return new Date(year, month - 1, day, 12).toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export function MiCuenta() {
   const navigate = useNavigate();
 
@@ -72,6 +92,7 @@ export function MiCuenta() {
   | "horarios"
   | "cita"
   | "biblioteca"
+  | "reservas"
   | "notificaciones"
   | "progreso"
   >("inicio");
@@ -288,22 +309,23 @@ export function MiCuenta() {
     }
   };
 
-  const membershipEndLabel = user?.proximo_pago
-    ? new Date(user.proximo_pago).toLocaleDateString("es-CL", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : "—";
-
-  const membershipStatus = user?.estado_pago || "Sin información";
+  const membershipEndLabel = formatMembershipEndDate(user?.proximo_pago);
+  const membershipEndDate = user?.proximo_pago?.slice(0, 10);
+  const membershipStatus =
+    membershipEndDate &&
+    membershipEndDate < localDateString(new Date()) &&
+    user?.estado_pago !== "Pendiente"
+      ? "Vencido"
+      : user?.estado_pago || "Sin información";
+  const membershipPlanLabel = getMembershipPlanLabel(user?.plan);
+  const isPremiumMembership = getMembershipTier(user?.plan) === "premium";
 
   const membershipModeLabel =
-  user?.estado_pago === "Al día"
+  membershipStatus === "Al día"
     ? "Membresía activa"
-    : user?.estado_pago === "Pendiente"
+    : membershipStatus === "Pendiente"
       ? "Pago pendiente"
-      : user?.estado_pago === "Vencido"
+      : membershipStatus === "Vencido"
         ? "Membresía vencida"
         : "Sin membresía activa";
 
@@ -472,6 +494,7 @@ export function MiCuenta() {
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: 8,
             marginBottom: 24,
             borderBottom: "1px solid #E8E4DF",
@@ -484,6 +507,7 @@ export function MiCuenta() {
             { id: "membresia" as const, label: "Mi Membresía" },
             { id: "horarios" as const, label: "Horarios" },
             { id: "cita" as const, label: "Citas" },
+            { id: "reservas" as const, label: "Reservas" },
             { id: "biblioteca" as const, label: "Biblioteca" },
             { id: "notificaciones" as const, label: "Notificaciones" },
             { id: "progreso" as const, label: "Progreso" },
@@ -669,6 +693,7 @@ export function MiCuenta() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(3, 1fr)",
+                    flexWrap: "wrap",
                     gap: 8,
                     maxHeight: 280,
                     overflowY: "auto",
@@ -743,7 +768,8 @@ export function MiCuenta() {
             </div>
           </div>
         )}
-        {activeTab === "biblioteca" && <BibliotecaEntrenamientos />}
+        {activeTab === "biblioteca" && <BibliotecaEntrenamientos plan={user.plan} />}
+        {activeTab === "reservas" && <ReservasClases />}
 
         {activeTab === "notificaciones" && <Notificaciones />}
 
@@ -853,6 +879,11 @@ export function MiCuenta() {
                     >
                       {[
                         {
+                          label: "Tipo de membresía",
+                          value: membershipPlanLabel,
+                          sub: "Plan asignado a tu cuenta",
+                        },
+                        {
                           label: "Estado de Membresía",
                           value: membershipModeLabel,
                           sub: "Estado actual de la membresía",
@@ -951,9 +982,14 @@ export function MiCuenta() {
                       >
                         {[
                           "Consulta de horarios",
+                          "Consulta de cupos disponibles",
+                          "Reservación y cancelación de clases",
                           "Registro de asistencia",
                           "Gestión de citas",
                           "Consulta de vigencia",
+                          isPremiumMembership
+                            ? "Acceso a entrenamientos Premium"
+                            : "Acceso a entrenamientos estándar",
                         ].map((benefit) => (
                           <div
                             key={benefit}
@@ -997,7 +1033,7 @@ export function MiCuenta() {
                             marginBottom: 8,
                           }}
                         >
-                          Próximamente
+                          Tu plan
                         </p>
 
                         <h3
@@ -1009,7 +1045,7 @@ export function MiCuenta() {
                             marginBottom: 8,
                           }}
                         >
-                          Lara Fit Premium
+                          {membershipPlanLabel}
                         </h3>
 
                         <p
@@ -1020,14 +1056,15 @@ export function MiCuenta() {
                             margin: 0,
                           }}
                         >
-                          Acceso a biblioteca de entrenamientos, contenido exclusivo y
-                          seguimiento de progreso.
+                          {isPremiumMembership
+                            ? "Tu membresía Premium habilita los entrenamientos exclusivos marcados como Premium en la biblioteca."
+                            : "Tu membresía Estándar incluye los entrenamientos disponibles para este plan. Las rutinas Premium permanecen bloqueadas."}
                         </p>
                       </div>
 
                       <button
                         type="button"
-                        onClick={() => setActiveTab("horarios")}
+                        onClick={() => setActiveTab("biblioteca")}
                         style={{
                           padding: "11px 18px",
                           borderRadius: 10,
@@ -1041,7 +1078,7 @@ export function MiCuenta() {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        Ver horarios
+                        Abrir biblioteca
                       </button>
                     </div>
                   </div>

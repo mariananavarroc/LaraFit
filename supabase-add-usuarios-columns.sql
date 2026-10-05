@@ -2,4 +2,5 @@
 
 alter table public.usuarios
   add column if not exists correo text,
+  add column if not exists plan text,
   add column if not exists notas text;

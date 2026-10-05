@@ -1,5 +1,10 @@
 import { supabase } from "./supabase";
 import { ensureStudentMatriculaIfMissing } from "./adminData";
+import {
+  PREMIUM_PLAN,
+  STANDARD_PLAN,
+  type MembershipTier,
+} from "../src/app/data/membership";
 
 export async function getActiveSession() {
   const { data, error } = await supabase.auth.getUser();
@@ -17,8 +22,9 @@ export async function signup(params: {
   telefono?: string;
   email: string;
   password: string;
+  membershipTier: MembershipTier;
 }): Promise<SignupResult> {
-  const { nombre, telefono, email, password } = params;
+  const { nombre, telefono, email, password, membershipTier } = params;
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
@@ -40,6 +46,7 @@ export async function signup(params: {
     contacto_emergencia: null,
     estado: true,
     rol: 2,
+    plan: membershipTier === "premium" ? PREMIUM_PLAN : STANDARD_PLAN,
   });
 
   if (insertError) {

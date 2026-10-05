@@ -21,6 +21,11 @@ import {
   getPaymentsByStudent,
   updateAdminStudentProfile,
 } from "../../../backend/adminData";
+import {
+  getMembershipPlanLabel,
+  PREMIUM_PLAN,
+  STANDARD_PLAN,
+} from "../data/membership";
 
 function toDateInputValue(iso: string | undefined | null): string {
   if (!iso?.trim()) return "";
@@ -70,7 +75,7 @@ function studentToEditForm(s: Student): EditFormState {
     birthDate: toDateInputValue(s.birthDate),
     joinDate: toDateInputValue(s.joinDate),
     horario: s.schedule === "Sin horario" ? "" : s.schedule,
-    plan: s.plan,
+    plan: getMembershipPlanLabel(s.plan),
     cuota: String(s.monthlyFee ?? 0),
     estadoPago: s.paymentStatus,
     ultimoPago: toDateInputValue(s.lastPaymentDate),
@@ -446,7 +451,10 @@ export function AlumnaProfile() {
             </div>
             <div>
               <label style={labelStyle}>Plan</label>
-              <input style={inputStyle} value={editForm.plan} onChange={(e) => setField("plan")(e.target.value)} />
+              <select style={inputStyle} value={editForm.plan} onChange={(e) => setField("plan")(e.target.value)}>
+                <option value={STANDARD_PLAN}>{STANDARD_PLAN}</option>
+                <option value={PREMIUM_PLAN}>{PREMIUM_PLAN}</option>
+              </select>
             </div>
             <div>
               <label style={labelStyle}>Cuota mensual</label>
