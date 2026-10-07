@@ -1,11 +1,59 @@
+import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router";
-import { useAuth } from "../context/AuthContext";
+import { getActiveSession, getUserData } from "../../../backend/auth";
 import { Flower2 } from "lucide-react";
 
-export function ProtectedRoute() {
-  const { user, isLoading } = useAuth();
+type AccessState =
+  | "loading"
+  | "allowed"
+  | "unauthenticated"
+  | "forbidden";
 
-  if (isLoading) {
+export function ProtectedRoute() {
+  const [accessState, setAccessState] =
+    useState<AccessState>("loading");
+
+  useEffect(() => {
+    let active = true;
+
+    const checkAccess = async () => {
+      try {
+        const sessionUser = await getActiveSession();
+
+        if (!active) return;
+
+        if (!sessionUser) {
+          setAccessState("unauthenticated");
+          return;
+        }
+
+        const profile = await getUserData(sessionUser.id);
+
+        if (!active) return;
+
+        if (!profile || profile.rol !== 1) {
+          setAccessState("forbidden");
+          return;
+        }
+
+        setAccessState("allowed");
+      } catch (error) {
+        console.error("Error verificando acceso:", error);
+
+        if (active) {
+          setAccessState("unauthenticated");
+        }
+      }
+    };
+
+    checkAccess();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (accessState === "loading") {
     return (
       <div
         style={{
@@ -23,29 +71,37 @@ export function ProtectedRoute() {
               width: 56,
               height: 56,
               borderRadius: "50%",
-              background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+              background:
+                "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               margin: "0 auto 16px",
-              animation: "pulse 1.5s ease-in-out infinite",
             }}
           >
             <Flower2 size={24} color="#1A1A1A" />
           </div>
-          <p style={{ color: "#C0BAB4", fontSize: "0.82rem" }}>Cargando...</p>
+
+          <p
+            style={{
+              color: "#C0BAB4",
+              fontSize: "0.82rem",
+            }}
+          >
+            Verificando acceso...
+          </p>
         </div>
-        <style>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(0.95); }
-          }
-        `}</style>
       </div>
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== "admin") return <Navigate to="/mi-cuenta" replace />;
+  if (accessState === "unauthenticated") {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (accessState === "forbidden") {
+    return <Navigate to="/mi-cuenta" replace />;
+  }
+
   return <Outlet />;
 }

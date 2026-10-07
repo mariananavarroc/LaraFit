@@ -88,7 +88,7 @@ export function ReservasClases() {
         }}
       >
         <p style={{ color: "#C8B8D8", fontSize: "0.65rem", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 8 }}>
-          Horarios y reservaciones
+          Clases y reservaciones
         </p>
         <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "1.8rem", fontWeight: 400, margin: "0 0 8px" }}>
           Clases disponibles

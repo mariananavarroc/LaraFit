@@ -24,7 +24,7 @@ import { BibliotecaEntrenamientos } from "./alumna/BibliotecaEntrenamientos";
 import { ReservasClases } from "./alumna/ReservasClases";
 import { Notificaciones } from "./alumna/Notificaciones";
 import { ProgresoAlumna } from "./alumna/ProgresoAlumna";
-import { getMembershipPlanLabel, getMembershipTier } from "../data/membership";
+import { getMembershipPlanLabel, hasPremiumMembership } from "../data/membership";
 
 function citaEstadoAlumna(estado: string): { titulo: string; detalle: string; badgeBg: string; badgeColor: string } {
   const e = estado.toLowerCase();
@@ -89,7 +89,6 @@ export function MiCuenta() {
   const [activeTab, setActiveTab] = useState<
   | "inicio"
   | "membresia"
-  | "horarios"
   | "cita"
   | "biblioteca"
   | "reservas"
@@ -107,7 +106,6 @@ export function MiCuenta() {
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [availableHorarios, setAvailableHorarios] = useState<HorarioOption[]>([]);
   const [selectedHorarioId, setSelectedHorarioId] = useState("");
-  const [previewHorarioId, setPreviewHorarioId] = useState("");
   const reservableHorarios = useMemo(
   () =>
     availableHorarios.filter(
@@ -116,9 +114,6 @@ export function MiCuenta() {
         horario.label !== "08:00 - 09:00"
     ),
     [availableHorarios]
-  );
-  const previewHorario = reservableHorarios.find(
-    (horario) => horario.id === previewHorarioId
   );
   useEffect(() => {
   if (reservableHorarios.length === 0) {
@@ -318,7 +313,7 @@ export function MiCuenta() {
       ? "Vencido"
       : user?.estado_pago || "Sin información";
   const membershipPlanLabel = getMembershipPlanLabel(user?.plan);
-  const isPremiumMembership = getMembershipTier(user?.plan) === "premium";
+  const isPremiumMembership = hasPremiumMembership(user?.plan);
 
   const membershipModeLabel =
   membershipStatus === "Al día"
@@ -505,9 +500,8 @@ export function MiCuenta() {
           [
             { id: "inicio" as const, label: "Inicio" },
             { id: "membresia" as const, label: "Mi Membresía" },
-            { id: "horarios" as const, label: "Horarios" },
+            { id: "reservas" as const, label: "Clases" },
             { id: "cita" as const, label: "Citas" },
-            { id: "reservas" as const, label: "Reservas" },
             { id: "biblioteca" as const, label: "Biblioteca" },
             { id: "notificaciones" as const, label: "Notificaciones" },
             { id: "progreso" as const, label: "Progreso" },
@@ -773,7 +767,78 @@ export function MiCuenta() {
 
         {activeTab === "notificaciones" && <Notificaciones />}
 
-        {activeTab === "progreso" && <ProgresoAlumna />}
+        {activeTab === "progreso" && (
+          isPremiumMembership ? (
+            <ProgresoAlumna />
+          ) : (
+            <div
+              style={{
+                background: "#FFFFFF",
+                borderRadius: 20,
+                padding: "48px 32px",
+                textAlign: "center",
+                border: "1px solid #EEEAE6",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "0.7rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  color: "#9B7DB5",
+                  marginBottom: 10,
+                  fontWeight: 600,
+                }}
+              >
+                Contenido Premium
+              </p>
+
+              <h2
+                style={{
+                  fontFamily: "'Cormorant Garamond', serif",
+                  fontSize: "2rem",
+                  fontWeight: 400,
+                  color: "#1A1A1A",
+                  marginBottom: 12,
+                }}
+              >
+                Seguimiento de progreso
+              </h2>
+
+              <p
+                style={{
+                  color: "#6B6560",
+                  fontSize: "0.9rem",
+                  lineHeight: 1.6,
+                  maxWidth: 500,
+                  margin: "0 auto 24px",
+                }}
+              >
+                El seguimiento de progreso forma parte de los beneficios de la
+                membresía Premium. Con este plan podrás consultar y registrar tus
+                avances dentro de Lara Fit Studio.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("membresia")}
+                style={{
+                  padding: "11px 20px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "linear-gradient(135deg, #C8B8D8, #F2D4D7)",
+                  color: "#1A1A1A",
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              >
+                Ver mi membresía
+              </button>
+            </div>
+          )
+        )}
 
         {activeTab === "membresia" && (
                   <div>
@@ -1083,309 +1148,6 @@ export function MiCuenta() {
                     </div>
                   </div>
                 )}
-
-                {activeTab === "horarios" && (
-          <div>
-            {/* Encabezado */}
-            <div
-              style={{
-                background: "linear-gradient(135deg, #1A1A1A 0%, #302635 100%)",
-                borderRadius: 20,
-                padding: "32px 36px",
-                marginBottom: 24,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 20,
-                position: "relative",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  width: 180,
-                  height: 180,
-                  borderRadius: "50%",
-                  background: "rgba(200,184,216,0.08)",
-                  right: -35,
-                  top: -60,
-                }}
-              />
-
-              <div style={{ position: "relative", zIndex: 1 }}>
-                <p
-                  style={{
-                    color: "#C8B8D8",
-                    fontSize: "0.65rem",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    marginBottom: 8,
-                  }}
-                >
-                  Horarios
-                </p>
-
-                <h2
-                  style={{
-                    fontFamily: "'Cormorant Garamond', serif",
-                    color: "#FFFFFF",
-                    fontSize: "1.8rem",
-                    fontWeight: 400,
-                    marginBottom: 6,
-                  }}
-                >
-                  Encuentra tu horario
-                </h2>
-
-                <p
-                  style={{
-                    color: "rgba(255,255,255,0.55)",
-                    fontSize: "0.82rem",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
-                  Consulta los horarios disponibles y prepara tu próxima reservación.
-                </p>
-              </div>
-
-              <div
-                style={{
-                  padding: "8px 15px",
-                  borderRadius: 999,
-                  background: "rgba(200,184,216,0.12)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  color: "#E6DBEE",
-                  fontSize: "0.74rem",
-                  position: "relative",
-                  zIndex: 1,
-                }}
-              >
-                {reservableHorarios.length} horarios disponibles
-              </div>
-            </div>
-
-            {/* Lista de horarios */}
-            <div
-              style={{
-                background: "#FFFFFF",
-                borderRadius: 16,
-                padding: "26px 28px",
-                border: "1px solid #F0EDE8",
-                boxShadow: "0 1px 10px rgba(0,0,0,0.04)",
-                marginBottom: 20,
-              }}
-            >
-              <p
-                style={{
-                  color: "#C8B8D8",
-                  fontSize: "0.65rem",
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  marginBottom: 10,
-                }}
-              >
-                Disponibilidad
-              </p>
-
-              <h3
-                style={{
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: "1.3rem",
-                  fontWeight: 400,
-                  color: "#1A1A1A",
-                  marginBottom: 6,
-                }}
-              >
-                Horarios del estudio
-              </h3>
-
-              <p
-                style={{
-                  fontSize: "0.78rem",
-                  color: "#9D9D9D",
-                  lineHeight: 1.5,
-                  marginBottom: 20,
-                }}
-              >
-                Selecciona un horario para visualizarlo como opción de reservación.
-              </p>
-
-              {reservableHorarios.length === 0 ? (
-                <div
-                  style={{
-                    padding: "24px",
-                    borderRadius: 12,
-                    background: "#FDFCFB",
-                    border: "1px solid #F0EDE8",
-                    textAlign: "center",
-                    color: "#9D9D9D",
-                    fontSize: "0.8rem",
-                  }}
-                >
-                  No hay horarios disponibles actualmente.
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: 12,
-                  }}
-                >
-                  {reservableHorarios.map((horario) => {
-                    const selected = previewHorarioId === horario.id;
-
-                    return (
-                      <button
-                        key={horario.id}
-                        type="button"
-                        onClick={() =>
-                          setPreviewHorarioId((current) =>
-                            current === horario.id ? "" : horario.id
-                          )
-                        }
-                        style={{
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "18px",
-                          borderRadius: 14,
-                          border: selected
-                            ? "1.5px solid #B796CF"
-                            : "1px solid #F0EDE8",
-                          background: selected
-                            ? "linear-gradient(135deg, rgba(200,184,216,0.20), rgba(242,212,215,0.22))"
-                            : "#FDFCFB",
-                          cursor: "pointer",
-                          fontFamily: "'DM Sans', sans-serif",
-                          transition: "all 0.2s ease",
-                        }}
-                      >
-                        <p
-                          style={{
-                            fontSize: "0.66rem",
-                            color: selected ? "#7B5EA7" : "#B1AAA4",
-                            letterSpacing: "0.12em",
-                            textTransform: "uppercase",
-                            marginBottom: 8,
-                          }}
-                        >
-                          {selected ? "Seleccionado" : "Horario disponible"}
-                        </p>
-
-                        <p
-                          style={{
-                            fontSize: "1rem",
-                            color: "#1A1A1A",
-                            marginBottom: 4,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {horario.label}
-                        </p>
-
-                        <p
-                          style={{
-                            fontSize: "0.72rem",
-                            color: "#9D9D9D",
-                            margin: 0,
-                          }}
-                        >
-                          Lara Fit Studio
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Reservación */}
-            <div
-              style={{
-                background:
-                  previewHorarioId
-                    ? "linear-gradient(135deg, rgba(200,184,216,0.18), rgba(242,212,215,0.22))"
-                    : "#FFFFFF",
-                border: previewHorarioId
-                  ? "1px solid rgba(183,150,207,0.35)"
-                  : "1px solid #F0EDE8",
-                borderRadius: 16,
-                padding: "26px 28px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                flexWrap: "wrap",
-                gap: 20,
-                boxShadow: "0 1px 10px rgba(0,0,0,0.04)",
-              }}
-            >
-              <div style={{ flex: "1 1 280px" }}>
-                <p
-                  style={{
-                    color: "#C8B8D8",
-                    fontSize: "0.65rem",
-                    letterSpacing: "0.18em",
-                    textTransform: "uppercase",
-                    marginBottom: 8,
-                  }}
-                >
-                  Reservaciones
-                </p>
-
-                <h3
-                  style={{
-                    fontFamily: "'Cormorant Garamond', serif",
-                    fontSize: "1.3rem",
-                    fontWeight: 400,
-                    color: "#1A1A1A",
-                    marginBottom: 7,
-                  }}
-                >
-                  {previewHorario
-                    ? previewHorario.label
-                    : "Selecciona un horario"}
-                </h3>
-
-                <p
-                  style={{
-                    color: "#6B6560",
-                    fontSize: "0.8rem",
-                    lineHeight: 1.55,
-                    margin: 0,
-                  }}
-                >
-                  {previewHorarioId
-                    ? "La reservación y cancelación de clases se habilitará durante la siguiente etapa del desarrollo."
-                    : "Elige uno de los horarios disponibles para preparar tu reservación."}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                disabled
-                style={{
-                  padding: "11px 18px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: previewHorarioId
-                    ? "linear-gradient(135deg, #C8B8D8, #F2D4D7)"
-                    : "#EEEAE6",
-                  color: previewHorarioId ? "#1A1A1A" : "#AAA39D",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  cursor: "not-allowed",
-                  fontFamily: "'DM Sans', sans-serif",
-                  opacity: previewHorarioId ? 0.75 : 1,
-                }}
-              >
-                Próximamente
-              </button>
-            </div>
-          </div>
-        )}
 
         {activeTab === "inicio" && (
           <>

@@ -9,7 +9,7 @@ import {
   ChevronLeft,
   LockKeyhole,
 } from "lucide-react";
-import { getMembershipTier } from "../../data/membership";
+import { hasPremiumMembership} from "../../data/membership";
 
 type Disciplina = "Trampolín" | "Fuerza" | "Pilates" | "Baile";
 type Nivel = "Principiante" | "Intermedio" | "Avanzado";
@@ -130,7 +130,8 @@ const niveles: Array<Nivel | "Todos"> = [
 ];
 
 export function BibliotecaEntrenamientos({ plan }: { plan?: string | null }) {
-  const premiumAccess = getMembershipTier(plan) === "premium";
+  const premiumAccess =
+  hasPremiumMembership(plan);
   const [filtroDisciplina, setFiltroDisciplina] =
     useState<(typeof disciplinas)[number]>("Todas");
   const [filtroNivel, setFiltroNivel] =
